@@ -6,6 +6,7 @@ namespace voting.Data;
 public class VotingDbContext(DbContextOptions<VotingDbContext> options) : DbContext(options)
 {
     public DbSet<UserAccount> UserAccounts => Set<UserAccount>();
+    public DbSet<AdminInvitation> AdminInvitations => Set<AdminInvitation>();
     public DbSet<Election> Elections => Set<Election>();
     public DbSet<Position> Positions => Set<Position>();
     public DbSet<Candidate> Candidates => Set<Candidate>();
@@ -26,6 +27,9 @@ public class VotingDbContext(DbContextOptions<VotingDbContext> options) : DbCont
         account.Property(user => user.YearLevel).HasColumnName("year_level").HasMaxLength(100);
         account.Property(user => user.CreatedAtUtc).HasColumnName("created_at_utc");
         account.HasIndex(user => user.NormalizedEmail).IsUnique().HasDatabaseName("IX_user_accounts_normalized_email");
+
+        modelBuilder.Entity<AdminInvitation>().HasIndex(i => i.CodeHash).IsUnique();
+        modelBuilder.Entity<AdminInvitation>().HasOne(i => i.Creator).WithMany().HasForeignKey(i => i.CreatorId).OnDelete(DeleteBehavior.Restrict);
 
         modelBuilder.Entity<Ballot>().HasIndex(b => new { b.UserAccountId, b.ElectionId }).IsUnique();
         modelBuilder.Entity<BallotSelection>().HasIndex(s => new { s.BallotId, s.PositionId }).IsUnique();

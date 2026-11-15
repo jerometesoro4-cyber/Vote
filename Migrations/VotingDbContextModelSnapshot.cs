@@ -22,6 +22,44 @@ namespace voting.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("voting.Models.AdminInvitation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CreatorId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("UsedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CodeHash")
+                        .IsUnique();
+
+                    b.HasIndex("CreatorId");
+
+                    b.ToTable("AdminInvitations");
+                });
+
             modelBuilder.Entity("voting.Models.Ballot", b =>
                 {
                     b.Property<int>("Id")
@@ -218,6 +256,17 @@ namespace voting.Migrations
                         .HasDatabaseName("IX_user_accounts_normalized_email");
 
                     b.ToTable("user_accounts", (string)null);
+                });
+
+            modelBuilder.Entity("voting.Models.AdminInvitation", b =>
+                {
+                    b.HasOne("voting.Models.UserAccount", "Creator")
+                        .WithMany()
+                        .HasForeignKey("CreatorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Creator");
                 });
 
             modelBuilder.Entity("voting.Models.Ballot", b =>

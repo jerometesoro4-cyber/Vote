@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -16,7 +18,44 @@ public class AdminController(VotingDbContext db) : Controller
     public async Task<IActionResult> Positions() => View(await DashboardViewModel.LoadAsync(db, true));
     public async Task<IActionResult> Monitoring() => View(await DashboardViewModel.LoadAsync(db, true));
     public async Task<IActionResult> Results() => View(await DashboardViewModel.LoadAsync(db, true));
-    public async Task<IActionResult> Settings() => View(await DashboardViewModel.LoadAsync(db, true));
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> Settings()
+    {
+        if (!await IsCurrentAdmin()) return Forbid();
+        var invitations = await db.AdminInvitations.AsNoTracking().OrderByDescending(i => i.CreatedAtUtc)
+            .Select(i => new AdminInvitation { Id = i.Id, CreatedAtUtc = i.CreatedAtUtc, ExpiresAtUtc = i.ExpiresAtUtc,
+                UsedAtUtc = i.UsedAtUtc, RevokedAtUtc = i.RevokedAtUtc, Creator = new UserAccount { FullName = i.Creator.FullName } })
+            .ToListAsync();
+        return View(new AdminInvitationsViewModel { Invitations = invitations });
+    }
+
+    private async Task<bool> IsCurrentAdmin() => int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id)
+        && await db.UserAccounts.AnyAsync(u => u.Id == id && u.Role == "Admin");
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> GenerateInvitation()
+    {
+        if (!await IsCurrentAdmin()) return Forbid();
+        var code = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
+        var now = DateTime.UtcNow;
+        db.AdminInvitations.Add(new AdminInvitation { CreatorId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!),
+            CodeHash = AdminInvitation.HashCode(code), CreatedAtUtc = now, ExpiresAtUtc = now.AddDays(7) });
+        await db.SaveChangesAsync();
+        TempData["NewInvitationCode"] = code;
+        TempData["Success"] = "Invitation created.";
+        return RedirectToAction(nameof(Settings));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> RevokeInvitation(int id)
+    {
+        if (!await IsCurrentAdmin()) return Forbid();
+        var now = DateTime.UtcNow;
+        var changed = await db.AdminInvitations.Where(i => i.Id == id && i.UsedAtUtc == null && i.RevokedAtUtc == null && i.ExpiresAtUtc > now)
+            .ExecuteUpdateAsync(updates => updates.SetProperty(i => i.RevokedAtUtc, now));
+        TempData[changed == 1 ? "Success" : "Error"] = changed == 1 ? "Invitation revoked." : "Invitation is no longer active.";
+        return RedirectToAction(nameof(Settings));
+    }
 
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateElection(string? name, DateTime startsAtUtc, DateTime endsAtUtc)

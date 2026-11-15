@@ -1,14 +1,85 @@
-@{ViewData["Title"]="Account";}<div class="page-heading">
-<div>
-<h1>Account</h1>
-<p>Your administrator access.</p>
-</div>
+@model voting.Models.AdminInvitationsViewModel
+@{
+    ViewData["Title"] = "Account";
+    var newCode = TempData["NewInvitationCode"] as string;
+    var now = DateTime.UtcNow;
+}
+<div class="page-heading">
+    <div>
+        <h1>Account &amp; invitations</h1>
+        <p>Manage your account and invite another administrator.</p>
+    </div>
 </div>
 <section class="panel">
-<h2>@User.Identity?.Name</h2>
-<p>Role: Administrator</p>
-<p>Email: @User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value</p>
-<form asp-controller="Account" asp-action="Logout" method="post">
-<button type="submit">Sign out</button>
-</form>
+    <h2>@User.Identity?.Name</h2>
+    <p>Role: Administrator</p>
+    <p>Email: @User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value</p>
+    <form asp-controller="Account" asp-action="Logout" method="post">
+        <button type="submit" class="button secondary">Sign out</button>
+    </form>
+</section>
+<section class="panel">
+    <div class="panel-head">
+        <h2>Invite an administrator</h2>
+        <form asp-action="GenerateInvitation" method="post">
+            <button type="submit">Generate invitation code</button>
+        </form>
+    </div>
+    <p>Generate a code and share it privately with the person you want to invite. Each code expires after seven days and can be used once.</p>
+    <p class="muted">The recipient chooses <strong>Administrator</strong> on the Create account page and enters the code. Anyone with a valid code can create an administrator account.</p>
+    @if (!string.IsNullOrEmpty(newCode))
+    {
+        <div class="notice success" role="status">
+            <div class="field">
+                <label for="invitation-code">Your new invitation code</label>
+                <input id="invitation-code" type="text" value="@newCode" readonly autocomplete="off" spellcheck="false" />
+            </div>
+            <p style="margin:12px 0 0">Copy this code now. It will not be shown again after you leave or refresh this page.</p>
+        </div>
+    }
+    @if (Model.Invitations.Count == 0)
+    {
+        <div class="empty"><strong>No invitations yet</strong>Generate a code when you are ready to invite someone.</div>
+    }
+    else
+    {
+        <div class="table-wrapper" role="region" aria-label="Administrator invitations" tabindex="0">
+            <table>
+                <thead>
+                    <tr>
+                        <th scope="col">CREATED BY</th>
+                        <th scope="col">CREATED · UTC</th>
+                        <th scope="col">EXPIRES · UTC</th>
+                        <th scope="col">STATUS</th>
+                        <th scope="col">ACTION</th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var invitation in Model.Invitations)
+                {
+                    var status = invitation.UsedAtUtc != null ? "Used" : invitation.RevokedAtUtc != null ? "Revoked" : invitation.ExpiresAtUtc <= now ? "Expired" : "Active";
+                    <tr>
+                        <th scope="row">@invitation.Creator.FullName</th>
+                        <td>@invitation.CreatedAtUtc.ToString("MMM d, yyyy HH:mm")</td>
+                        <td>@invitation.ExpiresAtUtc.ToString("MMM d, yyyy HH:mm")</td>
+                        <td><span class="badge @(status == "Active" ? "open" : "")">@status</span></td>
+                        <td>
+                        @if (status == "Active")
+                        {
+                            <form asp-action="RevokeInvitation" method="post">
+                                <input type="hidden" name="id" value="@invitation.Id" />
+                                <button type="submit" class="button secondary">Revoke invitation</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <span class="muted">No action needed</span>
+                        }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
 </section>

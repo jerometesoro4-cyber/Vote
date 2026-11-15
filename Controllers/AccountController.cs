@@ -109,20 +109,15 @@ public class AccountController : Controller
     {
         if (model.Role != "Student" && model.Role != "Admin")
             ModelState.AddModelError(nameof(model.Role), "Choose a valid account type.");
-        if (model.Role == "Admin")
-        {
-            var expectedCode = _configuration["AdminAccount:InvitationCode"];
-            if (string.IsNullOrWhiteSpace(expectedCode))
-                ModelState.AddModelError(string.Empty, "Administrator registration is not configured. Contact the system owner.");
-            else if (!InvitationCodeMatches(model.InvitationCode ?? string.Empty, expectedCode))
-                ModelState.AddModelError(nameof(model.InvitationCode), "The invitation code is invalid.");
-        }
         if (!ModelState.IsValid) return View("Register", model);
 
         var account = CreateAccount(model.FullName, model.Email, model.Password, model.Role,
             model.Role == "Student" ? model.YearLevel : null);
-        var result = await SaveAccountAsync(account);
-        if (result == SaveResult.Duplicate)
+        var result = model.Role == "Admin"
+            ? await SaveAdminAccountAsync(account, model.InvitationCode) : await SaveAccountAsync(account);
+        if (result == SaveResult.InvalidInvitation)
+            ModelState.AddModelError(nameof(model.InvitationCode), "The invitation code is invalid, expired, used, or revoked.");
+        else if (result == SaveResult.Duplicate)
             ModelState.AddModelError(nameof(model.Email), "An account with this email already exists.");
         else if (result == SaveResult.Error)
             ModelState.AddModelError(string.Empty, DbUnavailableMessage);
@@ -181,18 +176,6 @@ public async Task<IActionResult> StudentSignup(StudentRegistrationViewModel mode
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> AdminSignup(AdminRegistrationViewModel model)
     {
-        var expectedInvitationCode = _configuration["AdminAccount:InvitationCode"];
-        if (string.IsNullOrWhiteSpace(expectedInvitationCode))
-        {
-            ModelState.AddModelError(
-                string.Empty,
-                "Administrator registration is not configured. Contact the system owner.");
-        }
-        else if (!InvitationCodeMatches(model.InvitationCode ?? string.Empty, expectedInvitationCode))
-        {
-            ModelState.AddModelError(nameof(model.InvitationCode), "The invitation code is invalid.");
-        }
-
         if (!ModelState.IsValid)
         {
             return View(model);
@@ -205,7 +188,12 @@ public async Task<IActionResult> StudentSignup(StudentRegistrationViewModel mode
             "Admin",
             yearLevel: null);
 
-        var saveResult = await SaveAccountAsync(account);
+        var saveResult = await SaveAdminAccountAsync(account, model.InvitationCode);
+        if (saveResult == SaveResult.InvalidInvitation)
+        {
+            ModelState.AddModelError(nameof(model.InvitationCode), "The invitation code is invalid, expired, used, or revoked.");
+            return View(model);
+        }
         if (saveResult == SaveResult.Duplicate)
         {
             ModelState.AddModelError(nameof(model.Email), "An account with this email already exists.");
@@ -254,8 +242,39 @@ public async Task<IActionResult> StudentSignup(StudentRegistrationViewModel mode
     private enum SaveResult
     {
         Success,
+        InvalidInvitation,
         Duplicate,
         Error
+    }
+
+    private async Task<SaveResult> SaveAdminAccountAsync(UserAccount account, string? code)
+    {
+        try
+        {
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+            var hasAdmin = await _dbContext.UserAccounts.AnyAsync(u => u.Role == "Admin");
+            var bootstrapCode = _configuration["AdminAccount:InvitationCode"];
+            var bootstrap = !hasAdmin && !string.IsNullOrWhiteSpace(bootstrapCode)
+                && InvitationCodeMatches(code ?? string.Empty, bootstrapCode);
+            if (!bootstrap)
+            {
+                var now = DateTime.UtcNow;
+                var hash = AdminInvitation.HashCode(code ?? string.Empty);
+                var consumed = await _dbContext.AdminInvitations
+                    .Where(i => i.CodeHash == hash && i.UsedAtUtc == null && i.RevokedAtUtc == null && i.ExpiresAtUtc > now)
+                    .ExecuteUpdateAsync(updates => updates.SetProperty(i => i.UsedAtUtc, now));
+                if (consumed != 1) return SaveResult.InvalidInvitation;
+            }
+            var result = await SaveAccountAsync(account);
+            if (result != SaveResult.Success) return result;
+            await transaction.CommitAsync();
+            return SaveResult.Success;
+        }
+        catch (Exception exception) when (IsDatabaseException(exception))
+        {
+            _logger.LogError(exception, "Could not register an administrator.");
+            return SaveResult.Error;
+        }
     }
 
     private async Task<SaveResult> SaveAccountAsync(UserAccount account)

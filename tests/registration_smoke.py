@@ -15,7 +15,7 @@ for old,role in [('StudentSignup','Student'),('AdminSignup','Admin')]:
 assert s.post(base+'/Account/Register',data={}).status_code==400
 common={'FullName':'','Email':'invalid','Password':'x','ConfirmPassword':'y'}
 r=post({**common,'Role':'Owner'});assert r.status_code==200 and 'Choose a valid account type' in r.text
-r=post({**common,'Role':'Admin','InvitationCode':''});assert r.status_code==200 and ('invitation code is invalid' in r.text or 'Administrator registration is not configured' in r.text)
+r=post({'Role':'Admin','FullName':'Invalid invitation check','Email':'invalid-invitation@example.test','Password':'Valid-test-password1!','ConfirmPassword':'Valid-test-password1!','InvitationCode':''});assert r.status_code==200 and 'invitation code is invalid' in r.text
 assert 'value="Admin" selected="selected"' in r.text
 r=post({**common,'Role':'Student','FullName':'Preserved Name'});assert r.status_code==200 and 'Preserved Name' in r.text and 'passwords do not match' in r.text
 print('PASS: one create-account link, shared role selector, legacy redirects, role validation, invitation requirement, password confirmation, CSRF and field retention')
