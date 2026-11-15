@@ -13,6 +13,7 @@ import requests
 BASE = os.environ.get('VOTE_TEST_URL', 'http://127.0.0.1:5189')
 DB = os.environ.get('VOTE_TEST_DB', 'ACMCLVoting')
 STANDARD_POSITIONS = ['President', 'Vice President', 'Secretary', 'Treasurer', 'Auditor']
+MANILA = timezone(timedelta(hours=8))
 
 
 def sql(query):
@@ -52,11 +53,21 @@ def login(role):
     return session
 
 
-def create_election(name, starts, ends, standard):
+def manila_schedule(starts, ends):
+    return {
+        'startsAtManila': starts.astimezone(MANILA).strftime('%Y-%m-%dT%H:%M'),
+        'endsAtManila': ends.astimezone(MANILA).strftime('%Y-%m-%dT%H:%M'),
+    }
+
+
+def create_election(name, starts, ends, standard, legacy_utc=False):
+    schedule = {
+        'startsAtUtc': starts.strftime('%Y-%m-%dT%H:%M'),
+        'endsAtUtc': ends.strftime('%Y-%m-%dT%H:%M'),
+    } if legacy_utc else manila_schedule(starts, ends)
     fields = [
         ('name', name),
-        ('startsAtUtc', starts.strftime('%Y-%m-%dT%H:%M')),
-        ('endsAtUtc', ends.strftime('%Y-%m-%dT%H:%M')),
+        *schedule.items(),
         *([('includeStandardPositions', 'true')] if standard else []),
         ('includeStandardPositions', 'false'),
     ]
@@ -92,8 +103,10 @@ try:
     assert admin.post(BASE + '/Admin/CreateElection', data={'name': 'csrf'}).status_code == 400
 
     now = datetime.now(timezone.utc)
-    first = create_election(room101, now - timedelta(hours=1), now + timedelta(hours=2), True)
-    other = create_election(room102, now + timedelta(hours=1), now + timedelta(hours=2), False)
+    start, end = now - timedelta(hours=1), now + timedelta(hours=2)
+    first = create_election(room101, start, end, True)
+    other = create_election(room102, now + timedelta(hours=1), end, False, legacy_utc=True)
+    assert sql(f'SELECT CONVERT(varchar(16), StartsAtUtc, 126) FROM Elections WHERE Id={first}') == start.strftime('%Y-%m-%dT%H:%M')
     setup = f'/Admin/Elections/{first}'
     positions = f'/Admin/Positions/{first}'
     assert sql(f'SELECT Name FROM Positions WHERE ElectionId={first} ORDER BY Id').splitlines() == STANDARD_POSITIONS
@@ -140,13 +153,24 @@ try:
         assert open_row and room101 in open_row[1] and 'Start voting' in open_row[1]
         assert scheduled_row and room102 in scheduled_row[1] and 'Scheduled' in scheduled_row[1]
         assert 'Start voting' not in scheduled_row[1]
-    assert 'Scheduled' in page(student, other_ballot) and 'Submit final ballot' not in page(student, other_ballot)
+    scheduled_ballot = page(student, other_ballot)
+    assert 'Scheduled' in scheduled_ballot and 'PHT' in scheduled_ballot and 'Submit final ballot' not in scheduled_ballot
     assert other_directory not in page(student, '/Student/Candidates')
     assert_redirect(student.get(BASE + other_directory, allow_redirects=False), '/Student/Candidates')
     assert_redirect(post(student, '/Student/Vote', other_ballot, {'electionId': other, **other_choices}), other_ballot)
     assert 'not currently open' in page(student, other_ballot)
 
-    sql(f'UPDATE Elections SET StartsAtUtc=DATEADD(hour,-1,SYSUTCDATETIME()) WHERE Id={other}')
+    schedule_update = {'id': other, **manila_schedule(start, end)}
+    assert student.post(BASE + '/Admin/UpdateSchedule', data=schedule_update, allow_redirects=False).status_code == 302
+    assert admin.post(BASE + '/Admin/UpdateSchedule', data=schedule_update).status_code == 400
+    invalid_schedule = {**schedule_update, 'endsAtManila': schedule_update['startsAtManila']}
+    assert_redirect(post(admin, '/Admin/UpdateSchedule', other_setup, invalid_schedule), other_setup)
+    assert 'valid Philippine-time voting period' in page(admin, other_setup)
+    assert 'Scheduled' in page(student, other_ballot)
+    assert_redirect(post(admin, '/Admin/UpdateSchedule', other_setup, schedule_update), other_setup)
+    assert 'Voting schedule updated' in page(admin, other_setup)
+    assert 'Submit final ballot' in page(student, other_ballot)
+    assert sql(f'SELECT CONVERT(varchar(16), StartsAtUtc, 126) FROM Elections WHERE Id={other}') == start.strftime('%Y-%m-%dT%H:%M')
     choices_page = page(student, '/Student/Candidates')
     assert f'href="{directory}"' in choices_page and f'href="{other_directory}"' in choices_page
     assert 'First Room Candidate' not in choices_page and 'Second Room Candidate' not in choices_page
@@ -178,13 +202,18 @@ try:
     assert 'Start voting' not in submitted_row[1]
     assert_redirect(post(student, '/Student/Vote', ballot, fields), ballot)
     assert sql(f'SELECT COUNT(*) FROM Ballots WHERE ElectionId={first}') == '1'
+    assert 'Save schedule' not in page(admin, setup)
+    locked_update = {'id': first, **manila_schedule(start + timedelta(hours=2), end)}
+    assert_redirect(post(admin, '/Admin/UpdateSchedule', setup, locked_update), setup)
+    assert 'until the first ballot is submitted' in page(admin, setup)
+    assert sql(f'SELECT CONVERT(varchar(16), StartsAtUtc, 126) FROM Elections WHERE Id={first}') == start.strftime('%Y-%m-%dT%H:%M')
     assert room101 not in page(student, '/PublicPortal/Results')
 
     assert_redirect(post(admin, '/Admin/ChangeStatus', setup, {'id': first, 'status': 'Closed'}), setup)
     assert directory not in page(student, '/Student/Candidates')
     assert room101 in page(student, '/PublicPortal/Results')
     assert room101 in page(student, '/Student/Results')
-    print('PASS: default and custom positions, room context and candidate isolation, voting schedule, ballot submission, duplicate rejection, and results.')
+    print('PASS: Philippine-time schedules, schedule correction and locking, room setup and candidate isolation, ballot submission, duplicate rejection, and results.')
 finally:
     sql(f"""
         BEGIN TRANSACTION;

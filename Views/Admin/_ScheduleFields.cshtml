@@ -1,0 +1,18 @@
+@model DashboardViewModel
+@using System.Globalization
+@{
+    var election = Model.SelectedElection;
+    var start = election?.StartsAtManila.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture);
+    var end = election?.EndsAtManila.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture);
+}
+
+<div class="form-grid form-actions">
+    <div class="field">
+        <label for="starts">Voting starts (Philippine time)</label>
+        <input id="starts" type="datetime-local" name="startsAtManila" value="@start" required/>
+    </div>
+    <div class="field">
+        <label for="ends">Voting ends (Philippine time)</label>
+        <input id="ends" type="datetime-local" name="endsAtManila" value="@end" required/>
+    </div>
+</div>

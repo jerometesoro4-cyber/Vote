@@ -14,7 +14,7 @@
             <h1 id="election-heading">@election.Name</h1>
             @if (canVote)
             {
-                <p>Closes @election.EndsAtUtc.ToString("MMM d, HH:mm") UTC</p>
+                <p>Closes @election.EndsAtManila.ToString("MMM d, yyyy h:mm tt") PHT</p>
             }
         </div>
         @if (canVote)
@@ -40,7 +40,7 @@
     {
         <div class="panel">
             <h2>Scheduled</h2>
-            <p>Opens @election.StartsAtUtc.ToString("MMM d, yyyy HH:mm") UTC</p>
+            <p>Opens @election.StartsAtManila.ToString("MMM d, yyyy h:mm tt") PHT</p>
         </div>
     }
     else if (!election.IsVotingOpenAt(now))

@@ -10,7 +10,7 @@
         <h1>@(election?.Name ?? "Elections")</h1>
         @if (election != null)
         {
-            <p>@election.StartsAtUtc.ToString("MMM d, yyyy HH:mm") to @election.EndsAtUtc.ToString("MMM d, yyyy HH:mm") UTC</p>
+            <p>@election.StartsAtManila.ToString("MMM d, yyyy h:mm tt") to @election.EndsAtManila.ToString("MMM d, yyyy h:mm tt") PHT</p>
         }
     </div>
     @if (election != null)
@@ -33,16 +33,7 @@
                 <label for="name">Election name</label>
                 <input id="name" name="name" required maxlength="150" placeholder="e.g. Room 101 Election"/>
             </div>
-            <div class="form-grid form-actions">
-                <div class="field">
-                    <label for="starts">Voting starts (UTC)</label>
-                    <input id="starts" type="datetime-local" name="startsAtUtc" required/>
-                </div>
-                <div class="field">
-                    <label for="ends">Voting ends (UTC)</label>
-                    <input id="ends" type="datetime-local" name="endsAtUtc" required/>
-                </div>
-            </div>
+            <partial name="_ScheduleFields" model="Model"/>
             <p>
                 <label><input type="checkbox" name="includeStandardPositions" value="true" checked aria-describedby="standard-positions"/> Add standard positions</label>
                 <input type="hidden" name="includeStandardPositions" value="false"/>
@@ -65,7 +56,7 @@ else
         </div>
         @if (election.Status == "Draft" && election.EndsAtUtc <= now)
         {
-            <p>The voting period has ended. Create an election with a future end time.</p>
+            <p>The voting period has ended. <a href="#edit-schedule">Set a future end time</a> to open voting.</p>
         }
         else if (election.Status == "Draft" && !election.HasCompleteBallot())
         {
@@ -80,4 +71,15 @@ else
             </form>
         }
     </section>
+    @if ((election.Status is "Draft" or "Open") && !Model.Ballots.Any(b => b.ElectionId == election.Id))
+    {
+        <section class="panel" id="edit-schedule">
+            <h2>Edit schedule</h2>
+            <form asp-action="UpdateSchedule" method="post">
+                <input type="hidden" name="id" value="@election.Id"/>
+                <partial name="_ScheduleFields" model="Model"/>
+                <button class="form-actions" type="submit">Save schedule</button>
+            </form>
+        </section>
+    }
 }

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using voting.Data;
 using voting.Models;
@@ -66,12 +67,19 @@ public class AdminController(VotingDbContext db) : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> CreateElection(string? name, DateTime startsAtUtc, DateTime endsAtUtc, bool includeStandardPositions = true)
+    public async Task<IActionResult> CreateElection(string? name, DateTime startsAtUtc, DateTime endsAtUtc,
+        bool includeStandardPositions = true, DateTime? startsAtManila = null, DateTime? endsAtManila = null)
     {
         name = name?.Trim();
+        if (startsAtManila.HasValue || endsAtManila.HasValue)
+        {
+            startsAtUtc = Election.ManilaToUtc(startsAtManila);
+            endsAtUtc = Election.ManilaToUtc(endsAtManila);
+        }
+
         if (!ModelState.IsValid || string.IsNullOrEmpty(name) || name.Length > 150 || startsAtUtc == default || endsAtUtc <= startsAtUtc)
         {
-            TempData["Error"] = "Enter an election name and a valid UTC start and end time.";
+            TempData["Error"] = "Enter an election name and an end time after the start time.";
             return RedirectToAction(nameof(Elections));
         }
 
@@ -82,6 +90,38 @@ public class AdminController(VotingDbContext db) : Controller
         await db.SaveChangesAsync();
         TempData["Success"] = "Election created as a draft.";
         return RedirectToAction(nameof(Elections), new { id = election.Id });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateSchedule(int id, DateTime? startsAtManila, DateTime? endsAtManila)
+    {
+        var startsAtUtc = Election.ManilaToUtc(startsAtManila);
+        var endsAtUtc = Election.ManilaToUtc(endsAtManila);
+        if (!ModelState.IsValid || startsAtUtc == default || endsAtUtc <= startsAtUtc || endsAtUtc <= DateTime.UtcNow)
+        {
+            TempData["Error"] = "Enter a valid Philippine-time voting period with an end time in the future.";
+            return RedirectToAction(nameof(Elections), new { id });
+        }
+
+        try
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+            var changed = await db.Elections
+                .Where(e => e.Id == id && (e.Status == "Draft" || e.Status == "Open")
+                    && !db.Ballots.Any(b => b.ElectionId == e.Id))
+                .ExecuteUpdateAsync(setters => setters.SetProperty(e => e.StartsAtUtc, startsAtUtc)
+                    .SetProperty(e => e.EndsAtUtc, endsAtUtc));
+            await transaction.CommitAsync();
+            TempData[changed == 1 ? "Success" : "Error"] = changed == 1
+                ? "Voting schedule updated."
+                : "You can edit the schedule until the first ballot is submitted or the election closes.";
+        }
+        catch (SqlException ex) when (ex.Number == 1205)
+        {
+            TempData["Error"] = "Another request was processed at the same time. Review the schedule before retrying.";
+        }
+
+        return RedirectToAction(nameof(Elections), new { id });
     }
 
     [HttpPost, ValidateAntiForgeryToken]

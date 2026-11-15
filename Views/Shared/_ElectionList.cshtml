@@ -32,14 +32,14 @@ else
         {
             var election = row.Election;
             var href = destination is null ? null : Url.Action(destination, controller, new { id = election.Id });
-            var start = election.StartsAtUtc.ToString("MMM d, HH:mm");
-            var end = election.EndsAtUtc.ToString("MMM d, yyyy HH:mm");
+            var start = election.StartsAtManila.ToString("MMM d, h:mm tt");
+            var end = election.EndsAtManila.ToString("MMM d, yyyy h:mm tt");
             var period = (destination, row.CanVote, row.Submitted) switch
             {
                 ("Vote", _, true) => null,
-                ("Vote", true, _) => $"Closes {election.EndsAtUtc:MMM d, HH:mm} UTC",
-                ("Vote", _, _) when now < election.StartsAtUtc && election.Status == "Open" => $"Opens {start} UTC",
-                _ => $"{start} – {end} UTC"
+                ("Vote", true, _) => $"Closes {end} PHT",
+                ("Vote", _, _) when now < election.StartsAtUtc && election.Status == "Open" => $"Opens {start} PHT",
+                _ => $"{start} – {end} PHT"
             };
             var label = (controller, destination, row.CanVote, row.Submitted) switch
             {

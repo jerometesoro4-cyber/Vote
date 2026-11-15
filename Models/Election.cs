@@ -4,6 +4,8 @@ namespace voting.Models;
 
 public class Election
 {
+    private static readonly TimeZoneInfo ManilaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila");
+
     public static IReadOnlyList<string> StandardPositions { get; } =
         ["President", "Vice President", "Secretary", "Treasurer", "Auditor"];
 
@@ -13,6 +15,16 @@ public class Election
     public DateTime EndsAtUtc { get; set; }
     [Required, MaxLength(20)] public string Status { get; set; } = "Draft";
     public List<Position> Positions { get; set; } = [];
+
+    public DateTime StartsAtManila => TimeZoneInfo.ConvertTimeFromUtc(StartsAtUtc, ManilaTimeZone);
+    public DateTime EndsAtManila => TimeZoneInfo.ConvertTimeFromUtc(EndsAtUtc, ManilaTimeZone);
+
+    public static DateTime ManilaToUtc(DateTime? localTime)
+    {
+        if (localTime is null) return default;
+        var wallTime = DateTime.SpecifyKind(localTime.Value, DateTimeKind.Unspecified);
+        return ManilaTimeZone.IsInvalidTime(wallTime) ? default : TimeZoneInfo.ConvertTimeToUtc(wallTime, ManilaTimeZone);
+    }
 
     public bool HasCompleteBallot() => Positions.Count > 0 && Positions.All(p => p.Candidates.Count > 0);
 
