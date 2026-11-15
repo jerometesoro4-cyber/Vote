@@ -1,13 +1,17 @@
 @model voting.Models.DashboardViewModel
 @{ViewData["Title"]="Results";}<div class="page-heading">
 <div>
-<h1>Election results</h1>
-<p>@(User.IsInRole("Admin") ? "Live tallies for your elections." : "Published tallies from closed elections.")</p>
+<h1>Results</h1>
 </div>
 </div>
 <section class="panel">
-<h2>Candidate tallies</h2>@if(Model.Results.Count==0){<div class="empty">
-<strong>No results available</strong>Results will appear here when available.</div>}<div class="table-wrapper" role="region" aria-label="Election results" tabindex="0">
+@if (Model.Results.Count == 0)
+{
+    <p class="list-empty">No published results.</p>
+}
+else
+{
+<div class="table-wrapper" role="region" aria-label="Election results" tabindex="0">
 <table>
 <thead>
 <tr>
@@ -27,4 +31,5 @@
 </tr>}</tbody>
 </table>
 </div>
+}
 </section>

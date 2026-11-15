@@ -1,67 +1,88 @@
 @model voting.Models.DashboardViewModel
 @{
-    ViewData["Title"] = "Your ballot";
     var election = Model.SelectedElection!;
+    ViewData["Title"] = election.Name;
     var now = DateTime.UtcNow;
+    var submitted = Model.Ballots.Any(ballot => ballot.ElectionId == election.Id);
+    var canVote = !submitted && election.IsVotingOpenAt(now) && election.HasCompleteBallot();
 }
 
-<div class="page-heading">
-    <div>
-        <h1>@election.Name</h1>
-        <p>@election.VotingStatusAt(now)</p>
+<div class="ballot-page">
+    <a class="back-link" asp-action="ActiveElections"><span aria-hidden="true">←</span> Elections</a>
+    <div class="page-heading">
+        <div>
+            <h1 id="election-heading">@election.Name</h1>
+            @if (canVote)
+            {
+                <p>Closes @election.EndsAtUtc.ToString("MMM d, HH:mm") UTC</p>
+            }
+        </div>
+        @if (canVote)
+        {
+            <a class="text-link" asp-action="Candidates" asp-route-id="@election.Id">Candidate profiles</a>
+        }
     </div>
-    <a class="button secondary" asp-action="ActiveElections">All elections</a>
-</div>
-
-<section class="panel">
-    @if (Model.Ballots.Any(b => b.ElectionId == election.Id))
+    @if (submitted)
     {
-        <h2>Ballot submitted</h2>
-        <a asp-action="History">View my ballots</a>
+        <div class="panel">
+            <h2>Ballot submitted</h2>
+            <a class="text-link" asp-action="History">My ballots</a>
+        </div>
     }
     else if (election.Status == "Closed")
     {
-        <p>Voting has ended for this election.</p>
-        <a asp-action="Results">View published results</a>
+        <div class="panel">
+            <h2>Voting closed</h2>
+            <a class="text-link" asp-action="Results">View results</a>
+        </div>
     }
     else if (now < election.StartsAtUtc)
     {
-        <p>Voting starts @election.StartsAtUtc.ToString("MMM d, yyyy HH:mm") UTC.</p>
+        <div class="panel">
+            <h2>Scheduled</h2>
+            <p>Opens @election.StartsAtUtc.ToString("MMM d, yyyy HH:mm") UTC</p>
+        </div>
     }
     else if (!election.IsVotingOpenAt(now))
     {
-        <p>The voting period has ended.</p>
+        <p class="list-empty">Voting ended.</p>
     }
     else if (!election.HasCompleteBallot())
     {
-        <p>The election administrator is still preparing this ballot.</p>
+        <p class="list-empty">Ballot unavailable.</p>
     }
     else
     {
-        <div class="panel-head">
-            <h2>Your ballot</h2>
-            <a asp-action="Candidates" asp-route-id="@election.Id">Review candidates</a>
-        </div>
-        <p>Select one candidate per position. Your submission is final.</p>
-        <form asp-action="Vote" method="post">
+        <form asp-action="Vote" method="post" class="ballot-form" aria-labelledby="election-heading">
             <input type="hidden" name="electionId" value="@election.Id"/>
             @foreach (var position in election.Positions.OrderBy(p => p.Id))
             {
                 <fieldset class="ballot-position">
                     <legend>@position.Name</legend>
-                    @foreach (var candidate in position.Candidates.OrderBy(c => c.Id))
-                    {
-                        <label class="ballot-choice">
-                            <input type="radio" name="choices[@position.Id]" value="@candidate.Id" required/>
-                            <span>
-                                <strong>@candidate.Name</strong><br/>
-                                <small>@(string.IsNullOrWhiteSpace(candidate.Party) ? "Independent" : candidate.Party)@(string.IsNullOrWhiteSpace(candidate.Platform) ? "" : $" · {candidate.Platform}")</small>
-                            </span>
-                        </label>
-                    }
+                    <div class="ballot-options">
+                        @foreach (var candidate in position.Candidates.OrderBy(c => c.Id))
+                        {
+                            <label class="ballot-choice" for="candidate-@candidate.Id">
+                                <input id="candidate-@candidate.Id" type="radio" name="choices[@position.Id]" value="@candidate.Id" required/>
+                                <span>
+                                    <strong>@candidate.Name</strong>
+                                    @if (!string.IsNullOrWhiteSpace(candidate.Party))
+                                    {
+                                        <small class="candidate-party">@candidate.Party</small>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(candidate.Platform))
+                                    {
+                                        <small class="candidate-platform">@candidate.Platform</small>
+                                    }
+                                </span>
+                            </label>
+                        }
+                    </div>
                 </fieldset>
             }
-            <button type="submit">Submit final ballot</button>
+            <div class="ballot-actions">
+                <button type="submit">Submit final ballot</button>
+            </div>
         </form>
     }
-</section>
+</div>

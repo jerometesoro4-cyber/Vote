@@ -115,7 +115,7 @@ As an administrator:
 5. Monitor ballot counts and tallies from the dashboard.
 6. Change the election from **Open** to **Closed** to publish results.
 
-As a student, open **Elections** and click the name of your room's election. Use **Review candidates** to see that election's candidates. Choose one candidate per position and click **Submit final ballot**. Each student account can submit **one ballot per election**. **My ballots** confirms successful submissions.
+As a student, open **Elections** and select the row for your room's election when it shows **Start voting**. The ballot lists that election's candidates by position. Choose one candidate per position and select **Submit final ballot**. Each student account can submit **one ballot per election**. **My ballots** shows the submission time.
 
 Election content is locked after opening. Closed elections cannot be reopened. Public/student results display only closed elections. All schedule inputs and timestamps are **UTC**; Philippine time is UTC+8.
 

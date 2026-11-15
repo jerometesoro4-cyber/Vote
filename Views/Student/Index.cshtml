@@ -1,53 +1,8 @@
 @model voting.Models.DashboardViewModel
-@{
-    ViewData["Title"] = "Overview";
-    var now = DateTime.UtcNow;
-    var openElections = Model.Elections.Where(e => e.IsVotingOpenAt(now)).ToList();
-}
+@{ ViewData["Title"] = "Overview"; }
+
 <div class="page-heading">
-<div>
-<p class="eyebrow">YOUR VOTING WORKSPACE</p>
-<h1>Welcome, @User.Identity?.Name</h1>
-<p>Review your elections, meet the candidates, and make your voice count.</p>
+    <h1>Your elections</h1>
+    <a class="button secondary" asp-action="History">My ballots (@Model.Ballots.Count)</a>
 </div>
-<a class="button" asp-action="ActiveElections">View elections →</a>
-</div>
-<div class="stats-grid">
-<div class="stat">
-<span class="stat-label">Available elections</span>
-<strong>@openElections.Count</strong>
-<small>Within their voting period</small>
-</div>
-<div class="stat">
-<span class="stat-label">Your ballots</span>
-<strong>@Model.Ballots.Count</strong>
-<small>Successfully submitted</small>
-</div>
-<div class="stat">
-<span class="stat-label">Candidates</span>
-<strong>@openElections.SelectMany(e => e.Positions).Sum(p => p.Candidates.Count)</strong>
-<small>Across open elections</small>
-</div>
-<div class="stat">
-<span class="stat-label">Account role</span>
-<strong style="font-size:24px">Student</strong>
-<small>Signed in and ready to explore</small>
-</div>
-</div>
-<div class="dashboard-grid">
-<section class="panel">
-<div class="panel-head">
-<h2>Your elections</h2>
-<a asp-action="ActiveElections">View all →</a>
-</div>
-<partial name="_ElectionTable" model="Model"/>
-</section>
-<section class="panel">
-<h2>Your next step</h2>
-<p class="muted">Review the candidates before submitting your ballot. You can submit once per election.</p>
-<div class="quick-links">
-<a asp-action="Candidates">Meet candidates →</a>
-<a asp-action="History">My ballots →</a>
-</div>
-</section>
-</div>
+<partial name="_ElectionList" model="Model"/>

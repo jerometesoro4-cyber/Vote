@@ -1,13 +1,25 @@
 @model IReadOnlyList<voting.Models.Candidate>
-<section class="panel">
-<div class="panel-head">
-<h2>Candidate directory</h2>
-<span class="muted">@Model.Count candidates</span>
-</div>@if(Model.Count==0){<div class="empty">
-<strong>No candidates yet</strong></div>}<div class="candidate-grid">@foreach(var c in Model.OrderBy(c => c.PositionId).ThenBy(c => c.Id)){<article class="candidate-card">
-<span class="badge">@c.Position.Name</span>
-<h3>@c.Name</h3>
-<p>@(string.IsNullOrWhiteSpace(c.Party)?"Independent":c.Party) · @c.Position.Election.Name</p>
-<p>@c.Platform</p>
-</article>}</div>
-</section>
+@if (Model.Count == 0)
+{
+    <p class="list-empty">No candidates yet.</p>
+}
+else
+{
+    <div class="candidate-grid">
+        @foreach (var candidate in Model.OrderBy(c => c.PositionId).ThenBy(c => c.Id))
+        {
+            <article class="candidate-card">
+                <p>@candidate.Position.Name · @candidate.Position.Election.Name</p>
+                <h2>@candidate.Name</h2>
+                @if (!string.IsNullOrWhiteSpace(candidate.Party))
+                {
+                    <p>@candidate.Party</p>
+                }
+                @if (!string.IsNullOrWhiteSpace(candidate.Platform))
+                {
+                    <p>@candidate.Platform</p>
+                }
+            </article>
+        }
+    </div>
+}

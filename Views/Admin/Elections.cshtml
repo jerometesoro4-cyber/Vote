@@ -17,11 +17,16 @@
     {
         <a class="button secondary" asp-action="Elections" asp-route-id="">All elections</a>
     }
+    else
+    {
+        <a class="button secondary" href="#create-election">Create election</a>
+    }
 </div>
 
 @if (election == null)
 {
-    <section class="panel">
+    <partial name="_ElectionList" model="Model"/>
+    <section id="create-election" class="panel election-create" tabindex="-1">
         <h2>Create election</h2>
         <form asp-action="CreateElection" method="post">
             <div class="field">
@@ -45,10 +50,6 @@
             </p>
             <button type="submit">Create draft election</button>
         </form>
-    </section>
-    <section class="panel">
-        <h2>Your elections</h2>
-        <partial name="_ElectionTable" model="Model"/>
     </section>
 }
 else

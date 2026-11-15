@@ -2,36 +2,30 @@
 @{ ViewData["Title"] = "Overview"; var turnout = Model.StudentCount == 0 || Model.Elections.Count == 0 ? 0 : (int)Math.Round(100.0 * Model.BallotCount / (Model.StudentCount * Model.Elections.Count)); }
 <div class="page-heading">
 <div>
-<p class="eyebrow">YOUR ELECTION WORKSPACE</p>
 <h1>Election overview</h1>
-<p>Welcome back, @User.Identity?.Name. Here’s where things stand.</p>
 </div>
-<a class="button" asp-action="Elections">+ Create election</a>
+<a class="button" asp-action="Elections" asp-fragment="create-election">Create election</a>
 </div>
 <div class="stats-grid">
 <div class="stat">
 <div class="stat-label">Registered voters <span class="stat-icon">♙</span>
 </div>
 <strong>@Model.StudentCount</strong>
-<small>Student accounts in the system</small>
 </div>
 <div class="stat">
 <div class="stat-label">Open elections <span class="stat-icon">▣</span>
 </div>
 <strong>@Model.Elections.Count(e => e.Status == "Open")</strong>
-<small>Check dates for voting availability</small>
 </div>
 <div class="stat">
 <div class="stat-label">Ballots submitted <span class="stat-icon">✓</span>
 </div>
 <strong>@Model.BallotCount</strong>
-<small>Across all elections</small>
 </div>
 <div class="stat">
 <div class="stat-label">Candidates <span class="stat-icon">♧</span>
 </div>
 <strong>@Model.Candidates.Count</strong>
-<small>Across @Model.Positions.Count positions</small>
 </div>
 </div>
 <div class="dashboard-grid">
@@ -41,14 +35,14 @@
 <h2>Elections</h2>
 <a asp-action="Elections">Manage elections →</a>
 </div>
-<partial name="_ElectionTable" model="Model"/>
+<partial name="_ElectionList" model="Model"/>
 </section>
 <section class="panel">
 <div class="panel-head">
 <h2>Recent ballot activity</h2>
 <a asp-action="Monitoring">View monitoring →</a>
 </div>@if(Model.Ballots.Count == 0){<div class="empty">
-<strong>No ballots yet</strong>Submitted ballots will appear here.</div>}@foreach(var b in Model.Ballots.OrderByDescending(b => b.CastAtUtc).Take(5)){<div class="activity">
+<strong>No ballots yet</strong></div>}@foreach(var b in Model.Ballots.OrderByDescending(b => b.CastAtUtc).Take(5)){<div class="activity">
 <span class="activity-icon">✓</span>
 <p>Ballot submitted · @b.Election.Name<small>@b.CastAtUtc.ToString("MMM d, yyyy HH:mm") UTC</small>
 </p>
@@ -77,12 +71,6 @@
 <a asp-action="Users">View voters →</a>
 <a asp-action="Results">View results →</a>
 </div>
-</section>
-<section class="panel">
-<p class="eyebrow">GETTING STARTED</p>
-<h2>Prepare your next election</h2>
-<p class="muted">Create an election, add positions and candidates, then open voting when everything is ready.</p>
-<a asp-action="Elections">Manage elections →</a>
 </section>
 </div>
 </div>

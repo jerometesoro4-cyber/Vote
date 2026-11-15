@@ -2,9 +2,7 @@
     Layout = "_AuthLayout";
     ViewData["Title"] = "Sign in";
 }
-<p class="form-kicker">ACMCL VOTING PORTAL</p>
 <h1>Sign in</h1>
-<p class="form-intro">Enter your account details to continue.</p>
 @if (ViewBag.Error != null)
 {
     <div class="form-alert" role="alert">@ViewBag.Error</div>
@@ -22,5 +20,5 @@
     <button type="submit" class="auth-button">Sign in</button>
 </form>
 <div class="auth-footer">
-    <p>New here? <a asp-action="Register">Create an account</a></p>
+    <p><a asp-action="Register">Create an account</a></p>
 </div>

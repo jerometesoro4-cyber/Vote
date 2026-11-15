@@ -133,7 +133,13 @@ try:
     directory = f'/Student/Candidates/{first}'
     other_directory = f'/Student/Candidates/{other}'
     for path in ['/Student/Index', '/Student/ActiveElections']:
-        assert f'href="{ballot}"' in page(student, path)
+        elections = page(student, path)
+        assert f'href="{ballot}"' in elections
+        open_row = re.search(fr'<a\b[^>]*\bhref="{ballot}"[^>]*>(.*?)</a>', elections, re.S)
+        scheduled_row = re.search(fr'<a\b[^>]*\bhref="{other_ballot}"[^>]*>(.*?)</a>', elections, re.S)
+        assert open_row and room101 in open_row[1] and 'Start voting' in open_row[1]
+        assert scheduled_row and room102 in scheduled_row[1] and 'Scheduled' in scheduled_row[1]
+        assert 'Start voting' not in scheduled_row[1]
     assert 'Scheduled' in page(student, other_ballot) and 'Submit final ballot' not in page(student, other_ballot)
     assert other_directory not in page(student, '/Student/Candidates')
     assert_redirect(student.get(BASE + other_directory, allow_redirects=False), '/Student/Candidates')
@@ -166,6 +172,10 @@ try:
     assert room101 in history and 'Your ballot has been submitted.' in history
     submitted = page(student, ballot)
     assert 'Ballot submitted' in submitted and 'Submit final ballot' not in submitted
+    submitted_list = page(student, '/Student/ActiveElections')
+    submitted_row = re.search(fr'<a\b[^>]*\bhref="{ballot}"[^>]*>(.*?)</a>', submitted_list, re.S)
+    assert submitted_row and room101 in submitted_row[1] and 'Ballot submitted' in submitted_row[1]
+    assert 'Start voting' not in submitted_row[1]
     assert_redirect(post(student, '/Student/Vote', ballot, fields), ballot)
     assert sql(f'SELECT COUNT(*) FROM Ballots WHERE ElectionId={first}') == '1'
     assert room101 not in page(student, '/PublicPortal/Results')

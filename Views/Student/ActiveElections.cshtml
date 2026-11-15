@@ -1,10 +1,7 @@
 @model voting.Models.DashboardViewModel
-@{ViewData["Title"]="Elections";}<div class="page-heading">
-<div>
-<h1>Elections</h1>
-<p>Select an election to open its ballot or check when voting is available.</p>
+@{ ViewData["Title"] = "Elections"; }
+
+<div class="page-heading">
+    <h1>Elections</h1>
 </div>
-</div>
-<section class="panel">
-<partial name="_ElectionTable" model="Model"/>
-</section>
+<partial name="_ElectionList" model="Model"/>

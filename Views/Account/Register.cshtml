@@ -3,9 +3,7 @@
     Layout = "_AuthLayout";
     ViewData["Title"] = "Create an account";
 }
-<p class="form-kicker">REGISTRATION</p>
-<h1>Create your account</h1>
-<p class="form-intro">Choose your account type and enter your details.</p>
+<h1>Create an account</h1>
 <div asp-validation-summary="ModelOnly" class="form-alert" role="alert"></div>
 <form asp-action="Register" method="post" class="auth-form">
     <div class="form-field"><label asp-for="Role"></label><select asp-for="Role"><option value="Student">Student</option><option value="Admin">Administrator</option></select><span asp-validation-for="Role"></span></div>

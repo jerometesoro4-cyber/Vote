@@ -1,0 +1,72 @@
+@model voting.Models.DashboardViewModel
+@{
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    var action = ViewContext.RouteData.Values["action"]?.ToString();
+    var destination = (controller, action) switch
+    {
+        ("Admin", "Positions" or "Candidates") => action,
+        ("Admin", _) => "Elections",
+        ("Student", "Candidates") => "Candidates",
+        ("Student", _) => "Vote",
+        _ => null
+    };
+    var now = DateTime.UtcNow;
+    var submitted = Model.Ballots.Select(ballot => ballot.ElectionId).ToHashSet();
+    var rows = Model.Elections.Select(election => new
+    {
+        Election = election,
+        Submitted = controller == "Student" && submitted.Contains(election.Id),
+        CanVote = destination == "Vote" && !submitted.Contains(election.Id)
+            && election.IsVotingOpenAt(now) && election.HasCompleteBallot()
+    }).OrderByDescending(row => row.CanVote).ThenByDescending(row => row.Election.Id);
+}
+
+@if (Model.Elections.Count == 0)
+{
+    <p class="list-empty">@(controller == "Student" && action == "Candidates" ? "No open elections." : "No elections yet.")</p>
+}
+else
+{
+    <ul class="election-list" role="list" aria-label="Elections">
+        @foreach (var row in rows)
+        {
+            var election = row.Election;
+            var href = destination is null ? null : Url.Action(destination, controller, new { id = election.Id });
+            var start = election.StartsAtUtc.ToString("MMM d, HH:mm");
+            var end = election.EndsAtUtc.ToString("MMM d, yyyy HH:mm");
+            var period = (destination, row.CanVote, row.Submitted) switch
+            {
+                ("Vote", _, true) => null,
+                ("Vote", true, _) => $"Closes {election.EndsAtUtc:MMM d, HH:mm} UTC",
+                ("Vote", _, _) when now < election.StartsAtUtc && election.Status == "Open" => $"Opens {start} UTC",
+                _ => $"{start} – {end} UTC"
+            };
+            var label = (controller, destination, row.CanVote, row.Submitted) switch
+            {
+                ("Student", "Candidates", _, _) => "View candidates",
+                (_, "Vote", true, _) => "Start voting",
+                (_, "Vote", _, true) => "Ballot submitted",
+                (_, "Vote", _, _) when election.IsVotingOpenAt(now) => "Ballot unavailable",
+                _ => election.VotingStatusAt(now)
+            };
+            <li>
+                <a class="election-row" href="@href">
+                    <span class="election-info">
+                        <strong class="election-name">@election.Name</strong>
+                        @if (period != null)
+                        {
+                            <span class="election-period">@period</span>
+                        }
+                    </span>
+                    <span class="election-action @(row.CanVote ? "can-vote" : null)">
+                        @label
+                        @if (href != null)
+                        {
+                            <span aria-hidden="true">→</span>
+                        }
+                    </span>
+                </a>
+            </li>
+        }
+    </ul>
+}

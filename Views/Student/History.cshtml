@@ -2,11 +2,10 @@
 @{ViewData["Title"]="My ballots";}<div class="page-heading">
 <div>
 <h1>My ballots</h1>
-<p>Your successful submissions. Ballot choices are not displayed here.</p>
 </div>
 </div>
 <section class="panel">@if(Model.Ballots.Count==0){<div class="empty">
-<strong>You haven’t submitted a ballot yet</strong>Explore available elections to get started.</div>}@foreach(var b in Model.Ballots.OrderByDescending(b=>b.CastAtUtc)){<div class="activity">
+<strong>No ballots submitted</strong><a class="text-link" asp-action="ActiveElections">View elections</a></div>}@foreach(var b in Model.Ballots.OrderByDescending(b=>b.CastAtUtc)){<div class="activity">
 <span class="activity-icon">✓</span>
 <p>
 <strong>@b.Election.Name</strong>
