@@ -1,0 +1,50 @@
+@{
+    ViewData["Title"] = "Manage Candidates";
+}
+
+<div class="page-heading">
+    <h1>Manage Candidates</h1>
+    <p>Add and edit candidate information.</p>
+</div>
+
+<div class="content-card">
+
+    <h2>Add Candidate</h2>
+
+    <form>
+        <label>Candidate Name</label>
+        <input type="text"
+               placeholder="Enter candidate name" />
+
+        <br /><br />
+
+        <label>Position</label>
+        <select>
+            <option>Select Position</option>
+            <option>President</option>
+            <option>Vice President</option>
+            <option>Secretary</option>
+            <option>Treasurer</option>
+            <option>Auditor</option>
+            <option>Public Information Officer</option>
+        </select>
+
+        <br /><br />
+
+        <label>Candidate Platform</label>
+        <textarea placeholder="Enter candidate platform"></textarea>
+
+        <br /><br />
+
+        <button type="button" class="get-started">
+            Add Candidate
+        </button>
+    </form>
+
+    <hr />
+
+    <h2>Candidate List</h2>
+
+    <p>No candidates added yet.</p>
+
+</div>

@@ -1,0 +1,13 @@
+using Microsoft.AspNetCore.Mvc;
+
+namespace ACMCLVotingMVC.Controllers
+{
+    public class HelpController : Controller
+    {
+        public IActionResult About() => View();
+
+        public IActionResult HowToVote() => View();
+
+        public IActionResult Privacy() => View();
+    }
+}

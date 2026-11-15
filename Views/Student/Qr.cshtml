@@ -1,0 +1,30 @@
+@{
+    ViewData["Title"] = "QR Code Access";
+}
+
+<div class="page-heading">
+    <h1>QR Code Access</h1>
+    <p>Access the official student voting portal.</p>
+</div>
+
+<div class="content-card">
+
+    <h2>Scan the Election QR Code</h2>
+
+    <p>
+        Scan the QR code provided by ACMCL
+        to access the student voting page.
+    </p>
+
+    <p>
+        You must sign in using your verified
+        school account before voting.
+    </p>
+
+    <a asp-controller="Account"
+       asp-action="StudentLogin"
+       class="get-started">
+        Student Login
+    </a>
+
+</div>

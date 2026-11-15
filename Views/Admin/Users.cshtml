@@ -1,0 +1,56 @@
+@{
+    ViewData["Title"] = "Manage Users";
+}
+
+<div class="page-heading">
+    <h1>Manage Users</h1>
+    <p>Manage student voters and election staff.</p>
+</div>
+
+<div class="content-card">
+
+    <h2>Add Student Voter</h2>
+
+    <form>
+        <label>Student ID</label>
+        <input type="text" placeholder="Enter Student ID" />
+
+        <br /><br />
+
+        <label>Full Name</label>
+        <input type="text" placeholder="Enter Full Name" />
+
+        <br /><br />
+
+        <label>School Gmail</label>
+        <input type="email" placeholder="Enter School Gmail" />
+
+        <br /><br />
+
+        <button type="button" class="get-started">
+            Add Student
+        </button>
+    </form>
+
+    <hr />
+
+    <h2>Voter List / Records</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Student ID</th>
+                <th>Full Name</th>
+                <th>Email</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            <tr>
+                <td colspan="4">No student records available.</td>
+            </tr>
+        </tbody>
+    </table>
+
+</div>

@@ -1,0 +1,46 @@
+@{
+    Layout = null;
+    ViewData["Title"] = "Student Login";
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Student Login - ACMCL</title>
+    <link rel="stylesheet" href="~/css/account.css" asp-append-version="true" />
+</head>
+<body>
+    <main class="login-container">
+        <img src="~/images/logo.webp" alt="ACMCL Logo" class="logo" />
+        <div class="school-name">ACMCL COLLEGE INC.</div>
+        <h2>Student Login</h2>
+        <p class="subtitle">Sign in with your registered school email.</p>
+
+        @if (ViewBag.Error != null)
+        {
+            <div class="error-message">@ViewBag.Error</div>
+        }
+
+        <form asp-action="StudentLogin" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="returnUrl" value="@ViewBag.ReturnUrl" />
+
+            <label for="email">School email</label>
+            <input id="email" type="email" name="email" autocomplete="username" required />
+
+            <label for="password">Password</label>
+            <input id="password" type="password" name="password" autocomplete="current-password" required />
+
+            <button type="submit" class="login-btn">Login as student</button>
+        </form>
+
+        <div class="auth-links">
+            <a asp-action="StudentSignup">Create a student account</a>
+            <br />
+            <a asp-action="ChooseRole">Choose another account type</a>
+        </div>
+    </main>
+</body>
+</html>

@@ -1,0 +1,51 @@
+@{
+    ViewData["Title"] = "My Dashboard";
+}
+
+<div class="page-heading">
+    <h1>My Dashboard</h1>
+    <p>Welcome to your student voter portal.</p>
+</div>
+
+<div class="dashboard-container">
+
+    <div class="info-card">
+        <h3>Available Elections</h3>
+        <h1>1</h1>
+    </div>
+
+    <div class="info-card">
+        <h3>Voting Status</h3>
+        <h1>Not Voted</h1>
+    </div>
+
+    <div class="info-card">
+        <h3>Account Status</h3>
+        <h1>Verified</h1>
+    </div>
+
+</div>
+
+<div class="content-card">
+    <h2>Student Voter Menu</h2>
+
+    <a asp-action="ActiveElections" class="get-started">
+        View Active Elections
+    </a>
+
+    <a asp-action="Vote" class="get-started">
+        Vote Now
+    </a>
+
+    <a asp-action="History" class="get-started">
+        My Voting History
+    </a>
+
+    <a asp-action="Candidates" class="get-started">
+        View Candidates
+    </a>
+
+    <a asp-action="Results" class="get-started">
+        Election Results
+    </a>
+</div>

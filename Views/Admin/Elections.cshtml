@@ -1,0 +1,58 @@
+@{
+    ViewData["Title"] = "Manage Elections";
+}
+
+<div class="page-heading">
+    <h1>Manage Elections</h1>
+    <p>Create and control student elections.</p>
+</div>
+
+<div class="content-card">
+
+    <h2>Create New Election</h2>
+
+    <form>
+        <label>Election Name</label>
+        <input type="text"
+               placeholder="Enter election name" />
+
+        <br /><br />
+
+        <label>Start Date</label>
+        <input type="datetime-local" />
+
+        <br /><br />
+
+        <label>End Date</label>
+        <input type="datetime-local" />
+
+        <br /><br />
+
+        <label>Election Status</label>
+        <select>
+            <option>Not Yet Started</option>
+            <option>Active</option>
+            <option>Closed</option>
+        </select>
+
+        <br /><br />
+
+        <button type="button" class="get-started">
+            Create Election
+        </button>
+    </form>
+
+    <hr />
+
+    <h2>Election QR Code</h2>
+
+    <p>
+        Generate and display the election QR code
+        after creating and activating an election.
+    </p>
+
+    <button type="button" class="get-started">
+        Generate QR Code
+    </button>
+
+</div>

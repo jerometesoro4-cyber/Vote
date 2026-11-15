@@ -1,0 +1,86 @@
+@{
+    Layout = null;
+    ViewData["Title"] = "Administrator Login";
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>ACMCL Administrator Login</title>
+
+    <link rel="stylesheet" href="~/css/account.css" asp-append-version="true" />
+</head>
+
+<body>
+
+    <div class="login-container">
+
+        <img src="~/images/logo.webp" alt="ACMCL Logo" class="logo" />
+
+        <div class="school-name">
+            ACMCL COLLEGE INC.
+        </div>
+
+        <h2>Welcome Back!</h2>
+
+        <p class="subtitle">
+            Administrator Login (Principal Only)
+        </p>
+
+        @if (ViewBag.Error != null)
+        {
+            <div class="error-message">
+                @ViewBag.Error
+            </div>
+        }
+
+        <form asp-controller="Account"
+              asp-action="AdminLogin"
+              method="post">
+
+            @Html.AntiForgeryToken()
+
+            <input type="hidden"
+                   name="returnUrl"
+                   value="@ViewBag.ReturnUrl" />
+
+            <label>Admin email or configured username</label>
+
+            <input type="text"
+                   name="username"
+                   placeholder="Enter administrator username"
+                   required />
+
+            <label>Password</label>
+
+            <input type="password"
+                   name="password"
+                   placeholder="Enter your password"
+                   required />
+
+            <button type="submit" class="login-btn">
+                Login
+                
+            </button>
+
+        </form>
+
+        <div class="auth-links">
+            <a asp-action="AdminSignup">Sign up as administrator</a>
+            <br />
+            <a asp-action="ChooseRole">Choose another account type</a>
+        </div>
+
+        <div class="footer">
+            © 2026 ACMCL College Inc.
+            <br />
+            Automated Voting & Tally System
+        </div>
+
+    </div>
+
+</body>
+</html>

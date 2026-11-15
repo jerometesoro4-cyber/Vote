@@ -1,0 +1,62 @@
+﻿@{
+    ViewData["Title"] = "Home";
+}
+
+<div class="welcome">
+
+    <h1>
+        Welcome to ACMCL College
+        <br />
+        Automated Voting & Tally System
+    </h1>
+
+    <p>
+        Secure, Transparent, and Efficient
+        <br />
+        Student Elections
+    </p>
+
+</div>
+
+<div class="dashboard-container">
+
+    <div class="school-logo">
+
+        <img src="~/images/logo.webp"
+             alt="ACMCL College Logo" />
+
+    </div>
+
+    <div class="info-card">
+
+        <h3>Election Period</h3>
+
+        <h2>October 20–24, 2026</h2>
+
+        <p>✓ Eligible Voters: 0</p>
+
+        <p>✓ One Vote Per Student</p>
+
+        <p>✓ Secure Voting</p>
+
+    </div>
+
+    <div class="info-card">
+
+        <h3>Election Overview</h3>
+
+        <h2>Positions: 8</h2>
+
+        <p>Review candidates before voting.</p>
+
+        <a asp-controller="PublicPortal"
+           asp-action="Candidates"
+           class="get-started">
+
+            Get Started
+
+        </a>
+
+    </div>
+
+</div>

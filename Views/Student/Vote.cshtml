@@ -1,0 +1,64 @@
+@{
+    ViewData["Title"] = "Vote Now";
+}
+
+<div class="page-heading">
+    <h1>Student Voting Page</h1>
+    <p>Review your ballot before submitting your vote.</p>
+</div>
+
+<div class="content-card">
+
+    <h2>Student Council Election 2026</h2>
+
+    <p>Select your preferred candidate for each position.</p>
+
+    <hr />
+
+    <form>
+
+        <h3>President</h3>
+
+        <label>
+            <input type="radio" name="president" value="candidate1" />
+            Candidate 1
+        </label>
+
+        <br />
+
+        <label>
+            <input type="radio" name="president" value="candidate2" />
+            Candidate 2
+        </label>
+
+        <br /><br />
+
+        <h3>Vice President</h3>
+
+        <label>
+            <input type="radio" name="vicepresident" value="candidate1" />
+            Candidate 1
+        </label>
+
+        <br />
+
+        <label>
+            <input type="radio" name="vicepresident" value="candidate2" />
+            Candidate 2
+        </label>
+
+        <br /><br />
+
+        <button type="button" class="get-started"
+                onclick="alert('Connect secure ballot submission before using this feature.')">
+            Review Ballot
+        </button>
+
+    </form>
+
+    <p class="muted">
+        Sample ballot only. Actual candidates and positions
+        should be loaded from the database.
+    </p>
+
+</div>

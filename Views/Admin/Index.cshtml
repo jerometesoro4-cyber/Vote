@@ -1,0 +1,59 @@
+@{
+    ViewData["Title"] = "Admin Dashboard";
+}
+
+<div class="page-heading">
+    <h1>Administrator Dashboard</h1>
+    <p>Welcome, Principal!</p>
+</div>
+
+<div class="dashboard-container">
+
+    <div class="info-card">
+        <h3>Eligible Voters</h3>
+        <h1>0</h1>
+    </div>
+
+    <div class="info-card">
+        <h3>Total Positions</h3>
+        <h1>0</h1>
+    </div>
+
+    <div class="info-card">
+        <h3>Votes Cast</h3>
+        <h1>0</h1>
+    </div>
+
+</div>
+
+<div class="content-card">
+    <h2>Election Management</h2>
+
+    <a asp-action="Users" class="get-started">
+        Manage Users
+    </a>
+
+    <a asp-action="Elections" class="get-started">
+        Manage Elections
+    </a>
+
+    <a asp-action="Candidates" class="get-started">
+        Manage Candidates
+    </a>
+
+    <a asp-action="Positions" class="get-started">
+        Manage Positions
+    </a>
+
+    <a asp-action="Monitoring" class="get-started">
+        Voting Monitoring
+    </a>
+
+    <a asp-action="Results" class="get-started">
+        Tally & Results
+    </a>
+
+    <a asp-action="Settings" class="get-started">
+        System Settings
+    </a>
+</div>
