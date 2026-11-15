@@ -1,21 +1,67 @@
 @model voting.Models.DashboardViewModel
-@{ViewData["Title"]="Your ballot";var election=Model.SelectedElection;}<div class="page-heading">
-<div>
-<p class="eyebrow">STUDENT BALLOT</p>
-<h1>@election?.Name</h1>
-<p>Select one candidate for each position. Submission is final.</p>
+@{
+    ViewData["Title"] = "Your ballot";
+    var election = Model.SelectedElection!;
+    var now = DateTime.UtcNow;
+}
+
+<div class="page-heading">
+    <div>
+        <h1>@election.Name</h1>
+        <p>@election.VotingStatusAt(now)</p>
+    </div>
+    <a class="button secondary" asp-action="ActiveElections">All elections</a>
 </div>
-</div>@if(election!=null){<section class="panel">
-<form asp-action="Vote" method="post">
-<input type="hidden" name="electionId" value="@election.Id"/>@foreach(var p in Model.Positions.Where(p=>p.ElectionId==election.Id)){<fieldset class="ballot-position">
-<legend>@p.Name</legend>@foreach(var c in Model.Candidates.Where(c=>c.PositionId==p.Id)){<label class="ballot-choice">
-<input type="radio" name="choices[@p.Id]" value="@c.Id" required/>
-<span>
-<strong>@c.Name</strong>
-<br/>
-<small>@c.Party · @c.Platform</small>
-</span>
-</label>}</fieldset>}<div class="notice">Review your choices carefully. You cannot change your ballot after submission.</div>
-<button type="submit">Submit final ballot</button>
-</form>
-</section>}
+
+<section class="panel">
+    @if (Model.Ballots.Any(b => b.ElectionId == election.Id))
+    {
+        <h2>Ballot submitted</h2>
+        <a asp-action="History">View my ballots</a>
+    }
+    else if (election.Status == "Closed")
+    {
+        <p>Voting has ended for this election.</p>
+        <a asp-action="Results">View published results</a>
+    }
+    else if (now < election.StartsAtUtc)
+    {
+        <p>Voting starts @election.StartsAtUtc.ToString("MMM d, yyyy HH:mm") UTC.</p>
+    }
+    else if (!election.IsVotingOpenAt(now))
+    {
+        <p>The voting period has ended.</p>
+    }
+    else if (!election.HasCompleteBallot())
+    {
+        <p>The election administrator is still preparing this ballot.</p>
+    }
+    else
+    {
+        <div class="panel-head">
+            <h2>Your ballot</h2>
+            <a asp-action="Candidates" asp-route-id="@election.Id">Review candidates</a>
+        </div>
+        <p>Select one candidate per position. Your submission is final.</p>
+        <form asp-action="Vote" method="post">
+            <input type="hidden" name="electionId" value="@election.Id"/>
+            @foreach (var position in election.Positions.OrderBy(p => p.Id))
+            {
+                <fieldset class="ballot-position">
+                    <legend>@position.Name</legend>
+                    @foreach (var candidate in position.Candidates.OrderBy(c => c.Id))
+                    {
+                        <label class="ballot-choice">
+                            <input type="radio" name="choices[@position.Id]" value="@candidate.Id" required/>
+                            <span>
+                                <strong>@candidate.Name</strong><br/>
+                                <small>@(string.IsNullOrWhiteSpace(candidate.Party) ? "Independent" : candidate.Party)@(string.IsNullOrWhiteSpace(candidate.Platform) ? "" : $" · {candidate.Platform}")</small>
+                            </span>
+                        </label>
+                    }
+                </fieldset>
+            }
+            <button type="submit">Submit final ballot</button>
+        </form>
+    }
+</section>

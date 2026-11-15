@@ -1,8 +1,26 @@
 @model voting.Models.DashboardViewModel
-@{ViewData["Title"]="Candidates";}<div class="page-heading">
-<div>
-<h1>Meet the candidates</h1>
-<p>Get to know the people and platforms on your ballot.</p>
+@{
+    ViewData["Title"] = "Candidates";
+    var election = Model.SelectedElection;
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Meet the candidates</h1>
+        <p>@(election?.Name ?? "Choose an open election to see its candidates.")</p>
+    </div>
+    @if (election != null)
+    {
+        <a class="button secondary" asp-action="Candidates" asp-route-id="">All open elections</a>
+    }
 </div>
-</div>
-<partial name="_CandidateCards" model="Model"/>
+
+@if (election == null)
+{
+    <section class="panel"><partial name="_ElectionTable" model="Model"/></section>
+}
+else
+{
+    <partial name="_CandidateCards" model="election.Positions.SelectMany(p => p.Candidates).ToList()"/>
+    <a class="button" asp-action="Vote" asp-route-id="@election.Id">@(Model.Ballots.Any(b => b.ElectionId == election.Id) ? "View ballot status" : "Open ballot")</a>
+}

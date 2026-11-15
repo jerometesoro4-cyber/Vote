@@ -1,55 +1,191 @@
-"""Local HTTP smoke test. Requires requests and VOTE_TEST_* credentials.
-Creates one uniquely named test election; removes only that election in finally.
-SQLCMD uses local Windows authentication for fixture lookup/cleanup.
+"""Local HTTP smoke test using VOTE_TEST_* credentials and SQLCMD.
+Set VOTE_TEST_DB to match the test app's SQL Server database (default ACMCLVoting).
+The test removes its two uniquely named elections in finally.
 """
-import os, re, subprocess, uuid
 from datetime import datetime, timedelta, timezone
+import os
+import re
+import subprocess
+import uuid
+
 import requests
+
 BASE = os.environ.get('VOTE_TEST_URL', 'http://127.0.0.1:5189')
+DB = os.environ.get('VOTE_TEST_DB', 'ACMCLVoting')
+STANDARD_POSITIONS = ['President', 'Vice President', 'Secretary', 'Treasurer', 'Auditor']
+
+
 def sql(query):
-    return subprocess.check_output(['sqlcmd','-b','-S','localhost','-E','-C','-d','ACMCLVoting','-h','-1','-W','-Q','SET NOCOUNT ON; '+query],text=True).strip()
-def token(s, path):
-    r=s.get(BASE+path); assert r.status_code==200,(path,r.status_code)
-    return re.search(r'name="__RequestVerificationToken" type="hidden" value="([^"]+)"',r.text).group(1)
-def post(s,path,source,data):
-    return s.post(BASE+path,data={**data,'__RequestVerificationToken':token(s,source)},allow_redirects=False)
+    return subprocess.check_output(
+        ['sqlcmd', '-b', '-S', 'localhost', '-E', '-C', '-d', DB, '-h', '-1', '-W', '-Q', 'SET NOCOUNT ON; ' + query],
+        text=True,
+    ).strip()
+
+
+def page(session, path):
+    response = session.get(BASE + path, timeout=15)
+    assert response.status_code == 200, (path, response.status_code)
+    return response.text
+
+
+def post(session, action, source, data):
+    markup = page(session, source)
+    token = re.search(r'name="__RequestVerificationToken" type="hidden" value="([^"]+)"', markup).group(1)
+    fields = [('__RequestVerificationToken', token)]
+    fields.extend(data.items() if isinstance(data, dict) else data)
+    return session.post(BASE + action, data=fields, timeout=15, allow_redirects=False)
+
+
+def assert_redirect(response, target):
+    assert response.status_code == 302 and response.headers.get('Location') == target, (
+        response.status_code, response.headers.get('Location'), target,
+    )
+
+
 def login(role):
-    s=requests.Session(); path='/Account/'+role+'Login'
-    r=post(s,path,path,{'username' if role=='Admin' else 'email':os.environ['VOTE_TEST_'+role.upper()+'_EMAIL'],'password':os.environ['VOTE_TEST_'+role.upper()+'_PASSWORD']})
-    assert r.status_code==302,(role,r.status_code); return s
-admin=login('Admin'); student=login('Student'); name='SMOKE-'+uuid.uuid4().hex; election_id=None
+    session = requests.Session()
+    response = post(session, '/Account/Login', '/Account/Login', {
+        'email': os.environ[f'VOTE_TEST_{role.upper()}_EMAIL'],
+        'password': os.environ[f'VOTE_TEST_{role.upper()}_PASSWORD'],
+    })
+    assert_redirect(response, f'/{role}/Index')
+    return session
+
+
+def create_election(name, starts, ends, standard):
+    fields = [
+        ('name', name),
+        ('startsAtUtc', starts.strftime('%Y-%m-%dT%H:%M')),
+        ('endsAtUtc', ends.strftime('%Y-%m-%dT%H:%M')),
+        *([('includeStandardPositions', 'true')] if standard else []),
+        ('includeStandardPositions', 'false'),
+    ]
+    response = post(admin, '/Admin/CreateElection', '/Admin/Elections', fields)
+    election_id = int(sql(f"SELECT Id FROM Elections WHERE Name='{name}'"))
+    assert_redirect(response, f'/Admin/Elections/{election_id}')
+    return election_id
+
+
+def candidates_for(election_id, name):
+    path = f'/Admin/Candidates/{election_id}'
+    choices = {}
+    for value in sql(f'SELECT Id FROM Positions WHERE ElectionId={election_id}').split():
+        position_id = int(value)
+        response = post(admin, '/Admin/AddCandidate', path, {
+            'electionId': election_id, 'positionId': position_id, 'name': name, 'platform': 'Test fixture',
+        })
+        assert_redirect(response, path)
+        choices[f'choices[{position_id}]'] = int(sql(f'SELECT Id FROM Candidates WHERE PositionId={position_id}'))
+    return choices
+
+
+admin = login('Admin')
+student = login('Student')
+prefix = 'SMOKE-' + uuid.uuid4().hex
+room101 = prefix + ' Room 101'
+room102 = prefix + ' Room 102'
+
 try:
-    for page in ['Index','Elections','Positions','Candidates','Users','Monitoring','Results','Settings']:
-        assert admin.get(BASE+'/Admin/'+page).status_code==200,page
-    assert student.get(BASE+'/Admin/Index',allow_redirects=False).status_code==302
-    assert admin.post(BASE+'/Admin/CreateElection',data={'name':'csrf'}).status_code==400
-    now=datetime.now(timezone.utc)
-    r=post(admin,'/Admin/CreateElection','/Admin/Elections',{'name':name,'startsAtUtc':(now-timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M'),'endsAtUtc':(now+timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M')});assert r.status_code==302
-    election_id=int(sql("SELECT Id FROM Elections WHERE Name='"+name+"'"))
-    for position in ['President','Secretary']:
-        post(admin,'/Admin/AddPosition','/Admin/Positions',{'electionId':election_id,'name':position})
-    positions=[int(i) for i in sql(f'SELECT Id FROM Positions WHERE ElectionId={election_id} ORDER BY Id').split()]
-    assert len(positions)==2
-    choices={}
-    for pos in positions:
-        post(admin,'/Admin/AddCandidate','/Admin/Candidates',{'positionId':pos,'name':name+' Candidate','party':'Test','platform':'Test fixture'})
-        choices[pos]=int(sql(f'SELECT Id FROM Candidates WHERE PositionId={pos}'))
-    post(admin,'/Admin/ChangeStatus','/Admin/Elections',{'id':election_id,'status':'Open'})
-    path='/Student/Vote/'+str(election_id)
-    assert student.get(BASE+path).status_code==200
-    bad=post(student,'/Student/Vote',path,{'electionId':election_id,'candidateIds':99999999});assert bad.status_code==302
-    assert sql(f'SELECT COUNT(*) FROM Ballots WHERE ElectionId={election_id}')=='0'
-    fields={'electionId':election_id,**{f'choices[{p}]':c for p,c in choices.items()}}
-    r=post(student,'/Student/Vote',path,fields);assert r.status_code==302 and 'History' in r.headers.get('Location','')
-    post(student,'/Student/Vote',path,fields)
-    assert sql(f'SELECT COUNT(*) FROM Ballots WHERE ElectionId={election_id}')=='1'
-    assert name not in requests.get(BASE+'/PublicPortal/Results').text
-    post(admin,'/Admin/ChangeStatus','/Admin/Elections',{'id':election_id,'status':'Closed'})
-    assert name in requests.get(BASE+'/PublicPortal/Results').text
-    assert name in student.get(BASE+'/Student/History').text
-    for page in ['Index','ActiveElections','Candidates','History','Results']:
-        assert student.get(BASE+'/Student/'+page).status_code==200,page
-    print('PASS: both roles, all dashboards/pages, CSRF, election setup, invalid ballot, valid ballot, duplicate rejection, closed results and history')
+    for action in ['Index', 'Elections', 'Positions', 'Candidates', 'Users', 'Monitoring', 'Results', 'Settings']:
+        page(admin, f'/Admin/{action}')
+    assert student.get(BASE + '/Admin/Index', allow_redirects=False).status_code == 302
+    assert admin.post(BASE + '/Admin/CreateElection', data={'name': 'csrf'}).status_code == 400
+
+    now = datetime.now(timezone.utc)
+    first = create_election(room101, now - timedelta(hours=1), now + timedelta(hours=2), True)
+    other = create_election(room102, now + timedelta(hours=1), now + timedelta(hours=2), False)
+    setup = f'/Admin/Elections/{first}'
+    positions = f'/Admin/Positions/{first}'
+    assert sql(f'SELECT Name FROM Positions WHERE ElectionId={first} ORDER BY Id').splitlines() == STANDARD_POSITIONS
+    assert sql(f'SELECT COUNT(*) FROM Positions WHERE ElectionId={other}') == '0'
+    assert f'href="{setup}"' in page(admin, '/Admin/Elections')
+    assert f'href="/Admin/Candidates/{first}"' in page(admin, positions)
+    assert_redirect(post(admin, '/Admin/AddPosition', positions, {'electionId': first, 'name': 'Room Representative'}), positions)
+    assert 'Room Representative' in page(admin, positions)
+    assert_redirect(post(admin, '/Admin/ChangeStatus', setup, {'id': first, 'status': 'Open'}), setup)
+    assert 'one candidate for each position' in page(admin, setup)
+
+    other_positions = f'/Admin/Positions/{other}'
+    assert_redirect(post(admin, '/Admin/AddPosition', other_positions, {'electionId': other, 'name': 'president'}), other_positions)
+    for _ in range(2):
+        assert_redirect(post(admin, '/Admin/AddPosition', other_positions, {'electionId': other, 'addStandard': 'true'}), other_positions)
+    assert sql(f'SELECT COUNT(*) FROM Positions WHERE ElectionId={other}') == str(len(STANDARD_POSITIONS))
+    assert student.get(BASE + f'/Student/Vote/{first}').status_code == 404
+
+    first_choices = candidates_for(first, 'First Room Candidate')
+    fields = {'electionId': first, **first_choices}
+    other_choices = candidates_for(other, 'Second Room Candidate')
+    other_position_id = int(sql(f'SELECT MIN(Id) FROM Positions WHERE ElectionId={other}'))
+    admin_candidates = f'/Admin/Candidates/{first}'
+    assert_redirect(post(admin, '/Admin/AddCandidate', admin_candidates, {
+        'electionId': first, 'positionId': other_position_id, 'name': 'Mismatched Room Candidate',
+    }), admin_candidates)
+    scoped_admin = page(admin, admin_candidates)
+    assert 'First Room Candidate' in scoped_admin and 'Second Room Candidate' not in scoped_admin
+    assert sql("SELECT COUNT(*) FROM Candidates WHERE Name='Mismatched Room Candidate' "
+               f'AND PositionId={other_position_id}') == '0'
+
+    assert_redirect(post(admin, '/Admin/ChangeStatus', setup, {'id': first, 'status': 'Open'}), setup)
+    other_setup = f'/Admin/Elections/{other}'
+    assert_redirect(post(admin, '/Admin/ChangeStatus', other_setup, {'id': other, 'status': 'Open'}), other_setup)
+    ballot = f'/Student/Vote/{first}'
+    other_ballot = f'/Student/Vote/{other}'
+    directory = f'/Student/Candidates/{first}'
+    other_directory = f'/Student/Candidates/{other}'
+    for path in ['/Student/Index', '/Student/ActiveElections']:
+        assert f'href="{ballot}"' in page(student, path)
+    assert 'Scheduled' in page(student, other_ballot) and 'Submit final ballot' not in page(student, other_ballot)
+    assert other_directory not in page(student, '/Student/Candidates')
+    assert_redirect(student.get(BASE + other_directory, allow_redirects=False), '/Student/Candidates')
+    assert_redirect(post(student, '/Student/Vote', other_ballot, {'electionId': other, **other_choices}), other_ballot)
+    assert 'not currently open' in page(student, other_ballot)
+
+    sql(f'UPDATE Elections SET StartsAtUtc=DATEADD(hour,-1,SYSUTCDATETIME()) WHERE Id={other}')
+    choices_page = page(student, '/Student/Candidates')
+    assert f'href="{directory}"' in choices_page and f'href="{other_directory}"' in choices_page
+    assert 'First Room Candidate' not in choices_page and 'Second Room Candidate' not in choices_page
+    scoped_student = page(student, directory)
+    assert 'First Room Candidate' in scoped_student and 'Second Room Candidate' not in scoped_student
+    assert f'href="{ballot}"' in scoped_student
+
+    ballot_screen = page(student, ballot)
+    assert 'Submit final ballot' in ballot_screen and f'href="{directory}"' in ballot_screen
+    assert 'Second Room Candidate' not in ballot_screen
+    assert ballot_screen.count('name="choices[') == len(STANDARD_POSITIONS) + 1
+    first_choice, second_choice = list(first_choices)[:2]
+    wrong_room = {**fields, first_choice: next(iter(other_choices.values()))}
+    assert_redirect(post(student, '/Student/Vote', ballot, wrong_room), ballot)
+    assert 'Select one valid candidate' in page(student, ballot)
+    swapped = {**fields, first_choice: fields[second_choice], second_choice: fields[first_choice]}
+    assert_redirect(post(student, '/Student/Vote', ballot, swapped), ballot)
+    assert 'Select one valid candidate' in page(student, ballot)
+    assert sql(f'SELECT COUNT(*) FROM Ballots WHERE ElectionId IN ({first}, {other})') == '0'
+
+    assert_redirect(post(student, '/Student/Vote', ballot, fields), '/Student/History')
+    history = page(student, '/Student/History')
+    assert room101 in history and 'Your ballot has been submitted.' in history
+    submitted = page(student, ballot)
+    assert 'Ballot submitted' in submitted and 'Submit final ballot' not in submitted
+    assert_redirect(post(student, '/Student/Vote', ballot, fields), ballot)
+    assert sql(f'SELECT COUNT(*) FROM Ballots WHERE ElectionId={first}') == '1'
+    assert room101 not in page(student, '/PublicPortal/Results')
+
+    assert_redirect(post(admin, '/Admin/ChangeStatus', setup, {'id': first, 'status': 'Closed'}), setup)
+    assert directory not in page(student, '/Student/Candidates')
+    assert room101 in page(student, '/PublicPortal/Results')
+    assert room101 in page(student, '/Student/Results')
+    print('PASS: default and custom positions, room context and candidate isolation, voting schedule, ballot submission, duplicate rejection, and results.')
 finally:
-    if election_id:
-        sql(f'BEGIN TRANSACTION; DELETE FROM BallotSelections WHERE BallotId IN (SELECT Id FROM Ballots WHERE ElectionId={election_id}); DELETE FROM Ballots WHERE ElectionId={election_id}; DELETE FROM Candidates WHERE PositionId IN (SELECT Id FROM Positions WHERE ElectionId={election_id}); DELETE FROM Positions WHERE ElectionId={election_id}; DELETE FROM Elections WHERE Id={election_id}; COMMIT;')
+    sql(f"""
+        BEGIN TRANSACTION;
+        DECLARE @fixtures TABLE (Id int);
+        INSERT INTO @fixtures SELECT Id FROM Elections WHERE Name IN ('{room101}', '{room102}');
+        DELETE FROM BallotSelections WHERE BallotId IN (
+            SELECT Id FROM Ballots WHERE ElectionId IN (SELECT Id FROM @fixtures));
+        DELETE FROM Ballots WHERE ElectionId IN (SELECT Id FROM @fixtures);
+        DELETE FROM Candidates WHERE PositionId IN (
+            SELECT Id FROM Positions WHERE ElectionId IN (SELECT Id FROM @fixtures));
+        DELETE FROM Positions WHERE ElectionId IN (SELECT Id FROM @fixtures);
+        DELETE FROM Elections WHERE Id IN (SELECT Id FROM @fixtures);
+        COMMIT;
+    """)

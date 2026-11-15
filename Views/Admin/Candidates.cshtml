@@ -1,36 +1,66 @@
 @model voting.Models.DashboardViewModel
-@{ViewData["Title"]="Candidates";}<div class="page-heading">
-<div>
-<h1>Candidates</h1>
-<p>Build the ballot before opening an election.</p>
+@{
+    ViewData["Title"] = "Candidates";
+    var election = Model.SelectedElection;
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Candidates</h1>
+        <p>@(election?.Name ?? "Choose an election to manage its candidates.")</p>
+    </div>
+    @if (election != null)
+    {
+        <a class="button secondary" asp-action="Candidates" asp-route-id="">All elections</a>
+    }
 </div>
-</div>
-<section class="panel">
-<h2>Add candidate</h2>
-<form asp-action="AddCandidate" method="post">
-<div class="form-grid">
-<div class="field">
-<label for="position">Position · draft election</label>
-<select name="positionId" id="position" required>
-<option value="">Choose position</option>@foreach(var p in Model.Positions.Where(p=>p.Election.Status=="Draft")){<option value="@p.Id">@p.Election.Name · @p.Name</option>}</select>
-</div>
-<div class="field">
-<label for="name">Full name</label>
-<input id="name" name="name" maxlength="100" required/>
-</div>
-<div class="field">
-<label for="party">Party / affiliation</label>
-<input id="party" name="party" maxlength="100"/>
-</div>
-<div class="field">
-<label for="platform">Platform</label>
-<textarea id="platform" name="platform" maxlength="2000">
-</textarea>
-</div>
-</div>
-<div class="form-actions">
-<button type="submit">Add candidate</button>
-</div>
-</form>
-</section>
-<partial name="_CandidateCards" model="Model"/>
+
+@if (election == null)
+{
+    <section class="panel"><partial name="_ElectionTable" model="Model"/></section>
+}
+else
+{
+    @if (election.Status == "Draft")
+    {
+        <section class="panel">
+            <h2>Add candidate</h2>
+            @if (election.Positions.Count == 0)
+            {
+                <a asp-action="Positions" asp-route-id="@election.Id">Add a position to this election first</a>
+            }
+            else
+            {
+                <form asp-action="AddCandidate" method="post">
+                    <input type="hidden" name="electionId" value="@election.Id"/>
+                    <div class="form-grid">
+                        <div class="field">
+                            <label for="position">Position</label>
+                            <select name="positionId" id="position" required>
+                                <option value="">Choose position</option>
+                                @foreach (var position in election.Positions.OrderBy(p => p.Id))
+                                {
+                                    <option value="@position.Id">@position.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="name">Full name</label>
+                            <input id="name" name="name" maxlength="100" required/>
+                        </div>
+                        <div class="field">
+                            <label for="party">Party / affiliation</label>
+                            <input id="party" name="party" maxlength="100"/>
+                        </div>
+                        <div class="field">
+                            <label for="platform">Platform</label>
+                            <textarea id="platform" name="platform" maxlength="2000"></textarea>
+                        </div>
+                    </div>
+                    <button class="form-actions" type="submit">Add candidate</button>
+                </form>
+            }
+        </section>
+    }
+    <partial name="_CandidateCards" model="election.Positions.SelectMany(p => p.Candidates).ToList()"/>
+}

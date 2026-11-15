@@ -2,11 +2,9 @@
 @{ViewData["Title"]="Elections";}<div class="page-heading">
 <div>
 <h1>Elections</h1>
-<p>Voting availability depends on the election status and scheduled dates.</p>
+<p>Select an election to open its ballot or check when voting is available.</p>
 </div>
 </div>
 <section class="panel">
-<partial name="_ElectionTable" model="Model"/>@foreach(var e in Model.Elections.Where(e=>e.Status=="Open" && e.StartsAtUtc<=DateTime.UtcNow && e.EndsAtUtc>DateTime.UtcNow)){<div class="activity">
-<p>
-<strong>@e.Name</strong>
-</p>@if(Model.Ballots.Any(b=>b.ElectionId==e.Id)){<span class="badge">Ballot submitted</span>}else{<a class="button" asp-action="Vote" asp-route-id="@e.Id">Open ballot →</a>}</div>}</section>
+<partial name="_ElectionTable" model="Model"/>
+</section>

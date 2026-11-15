@@ -1,44 +1,82 @@
 @model voting.Models.DashboardViewModel
-@{ViewData["Title"]="Elections";}<div class="page-heading">
-<div>
-<p class="eyebrow">ELECTION MANAGEMENT</p>
-<h1>Elections</h1>
-<p>Create a voting period and manage its availability.</p>
+@{
+    ViewData["Title"] = "Elections";
+    var election = Model.SelectedElection;
+    var now = DateTime.UtcNow;
+}
+
+<div class="page-heading">
+    <div>
+        <h1>@(election?.Name ?? "Elections")</h1>
+        @if (election != null)
+        {
+            <p>@election.StartsAtUtc.ToString("MMM d, yyyy HH:mm") to @election.EndsAtUtc.ToString("MMM d, yyyy HH:mm") UTC</p>
+        }
+    </div>
+    @if (election != null)
+    {
+        <a class="button secondary" asp-action="Elections" asp-route-id="">All elections</a>
+    }
 </div>
-</div>
-<section class="panel">
-<h2>Create election</h2>
-<form asp-action="CreateElection" method="post">
-<div class="form-grid">
-<div class="field">
-<label for="name">Election name</label>
-<input id="name" name="name" required maxlength="150" placeholder="e.g. Student Council Election"/>
-</div>
-<div>
-</div>
-<div class="field">
-<label for="starts">Voting starts (UTC)</label>
-<input id="starts" type="datetime-local" name="startsAtUtc" required/>
-</div>
-<div class="field">
-<label for="ends">Voting ends (UTC)</label>
-<input id="ends" type="datetime-local" name="endsAtUtc" required/>
-</div>
-</div>
-<div class="form-actions">
-<button type="submit">Create draft election</button>
-</div>
-</form>
-</section>
-<section class="panel">
-<h2>Your elections</h2>
-<partial name="_ElectionTable" model="Model"/>@foreach(var e in Model.Elections){<form class="inline-form" asp-action="ChangeStatus" method="post" style="margin-top:20px">
-<input type="hidden" name="id" value="@e.Id"/>
-<label for="status-@e.Id">@e.Name</label>
-<select id="status-@e.Id" name="status">
-<option value="Draft" selected="@(e.Status == "Draft")">Draft</option>
-<option value="Open" selected="@(e.Status == "Open")">Open</option>
-<option value="Closed" selected="@(e.Status == "Closed")">Closed</option>
-</select>
-<button type="submit">Update status</button>
-</form>}</section>
+
+@if (election == null)
+{
+    <section class="panel">
+        <h2>Create election</h2>
+        <form asp-action="CreateElection" method="post">
+            <div class="field">
+                <label for="name">Election name</label>
+                <input id="name" name="name" required maxlength="150" placeholder="e.g. Room 101 Election"/>
+            </div>
+            <div class="form-grid form-actions">
+                <div class="field">
+                    <label for="starts">Voting starts (UTC)</label>
+                    <input id="starts" type="datetime-local" name="startsAtUtc" required/>
+                </div>
+                <div class="field">
+                    <label for="ends">Voting ends (UTC)</label>
+                    <input id="ends" type="datetime-local" name="endsAtUtc" required/>
+                </div>
+            </div>
+            <p>
+                <label><input type="checkbox" name="includeStandardPositions" value="true" checked aria-describedby="standard-positions"/> Add standard positions</label>
+                <input type="hidden" name="includeStandardPositions" value="false"/>
+                <br/><small id="standard-positions">@string.Join(", ", Election.StandardPositions)</small>
+            </p>
+            <button type="submit">Create draft election</button>
+        </form>
+    </section>
+    <section class="panel">
+        <h2>Your elections</h2>
+        <partial name="_ElectionTable" model="Model"/>
+    </section>
+}
+else
+{
+    <section class="panel">
+        <div class="panel-head">
+            <h2>Ballot setup</h2>
+            <span class="badge @(election.IsVotingOpenAt(now) ? "open" : "")">@election.VotingStatusAt(now)</span>
+        </div>
+        <div class="quick-links">
+            <a asp-action="Positions" asp-route-id="@election.Id">Positions (@election.Positions.Count)</a>
+            <a asp-action="Candidates" asp-route-id="@election.Id">Candidates (@election.Positions.Sum(p => p.Candidates.Count))</a>
+        </div>
+        @if (election.Status == "Draft" && election.EndsAtUtc <= now)
+        {
+            <p>The voting period has ended. Create an election with a future end time.</p>
+        }
+        else if (election.Status == "Draft" && !election.HasCompleteBallot())
+        {
+            <p>Add at least one position and one candidate per position to open voting.</p>
+        }
+        else if (election.Status is "Draft" or "Open")
+        {
+            <form class="form-actions" asp-action="ChangeStatus" method="post">
+                <input type="hidden" name="id" value="@election.Id"/>
+                <input type="hidden" name="status" value="@(election.Status == "Draft" ? "Open" : "Closed")"/>
+                <button type="submit">@(election.Status == "Draft" ? "Open voting" : "Close voting")</button>
+            </form>
+        }
+    </section>
+}

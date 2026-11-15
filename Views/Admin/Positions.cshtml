@@ -1,33 +1,65 @@
 @model voting.Models.DashboardViewModel
-@{ViewData["Title"]="Positions";}<div class="page-heading">
-<div>
-<h1>Positions</h1>
-<p>Define the offices students will vote for in each election.</p>
+@{
+    ViewData["Title"] = "Positions";
+    var election = Model.SelectedElection;
+}
+
+<div class="page-heading">
+    <div>
+        <h1>Positions</h1>
+        <p>@(election?.Name ?? "Choose an election to manage its positions.")</p>
+    </div>
+    @if (election != null)
+    {
+        <a class="button secondary" asp-action="Positions" asp-route-id="">All elections</a>
+    }
 </div>
-</div>
-<section class="panel">
-<h2>Add position</h2>
-<form asp-action="AddPosition" method="post">
-<div class="form-grid">
-<div class="field">
-<label for="election">Draft election</label>
-<select id="election" name="electionId" required>
-<option value="">Choose election</option>@foreach(var e in Model.Elections.Where(e=>e.Status=="Draft")){<option value="@e.Id">@e.Name</option>}</select>
-</div>
-<div class="field">
-<label for="position">Position name</label>
-<input id="position" name="name" required maxlength="100" placeholder="e.g. President"/>
-</div>
-</div>
-<div class="form-actions">
-<button type="submit">Add position</button>
-</div>
-</form>
-</section>
-<section class="panel">
-<h2>Election positions</h2>@if(Model.Positions.Count==0){<div class="empty">No positions yet.</div>}@foreach(var p in Model.Positions){<div class="activity">
-<p>
-<strong>@p.Name</strong>
-<small>@p.Election.Name · @p.Candidates.Count candidates</small>
-</p>
-</div>}</section>
+
+@if (election == null)
+{
+    <section class="panel"><partial name="_ElectionTable" model="Model"/></section>
+}
+else
+{
+    @if (election.Status == "Draft")
+    {
+        <section class="panel">
+            <h2>Add a custom position</h2>
+            <form asp-action="AddPosition" method="post">
+                <input type="hidden" name="electionId" value="@election.Id"/>
+                <div class="field">
+                    <label for="position">Position name</label>
+                    <input id="position" name="name" required maxlength="100" placeholder="e.g. Room Representative"/>
+                </div>
+                <button class="form-actions" type="submit">Add position</button>
+            </form>
+        </section>
+    }
+    <section class="panel">
+        <div class="panel-head">
+            <h2>Ballot positions</h2>
+            @if (election.Status == "Draft" && Election.StandardPositions.Except(election.Positions.Select(p => p.Name), StringComparer.OrdinalIgnoreCase).Any())
+            {
+                <form asp-action="AddPosition" method="post">
+                    <input type="hidden" name="electionId" value="@election.Id"/>
+                    <input type="hidden" name="addStandard" value="true"/>
+                    <button class="secondary button" type="submit">Add standard positions</button>
+                </form>
+            }
+        </div>
+        @if (election.Positions.Count == 0)
+        {
+            <div class="empty">No positions yet.</div>
+        }
+        @foreach (var position in election.Positions.OrderBy(p => p.Id))
+        {
+            <div class="activity">
+                <p><strong>@position.Name</strong><small>@position.Candidates.Count candidates</small></p>
+            </div>
+        }
+        @if (election.Positions.Count > 0)
+        {
+            <a class="button secondary form-actions" asp-action="Candidates" asp-route-id="@election.Id">Manage candidates</a>
+        }
+    </section>
+}

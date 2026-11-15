@@ -1,5 +1,10 @@
 @model voting.Models.DashboardViewModel
-@{ViewData["Title"]="Overview";}<div class="page-heading">
+@{
+    ViewData["Title"] = "Overview";
+    var now = DateTime.UtcNow;
+    var openElections = Model.Elections.Where(e => e.IsVotingOpenAt(now)).ToList();
+}
+<div class="page-heading">
 <div>
 <p class="eyebrow">YOUR VOTING WORKSPACE</p>
 <h1>Welcome, @User.Identity?.Name</h1>
@@ -10,7 +15,7 @@
 <div class="stats-grid">
 <div class="stat">
 <span class="stat-label">Available elections</span>
-<strong>@Model.Elections.Count(e=>e.Status=="Open" && e.StartsAtUtc<=DateTime.UtcNow && e.EndsAtUtc>DateTime.UtcNow)</strong>
+<strong>@openElections.Count</strong>
 <small>Within their voting period</small>
 </div>
 <div class="stat">
@@ -20,8 +25,8 @@
 </div>
 <div class="stat">
 <span class="stat-label">Candidates</span>
-<strong>@Model.Candidates.Count</strong>
-<small>Explore their platforms</small>
+<strong>@openElections.SelectMany(e => e.Positions).Sum(p => p.Candidates.Count)</strong>
+<small>Across open elections</small>
 </div>
 <div class="stat">
 <span class="stat-label">Account role</span>

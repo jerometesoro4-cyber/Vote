@@ -346,6 +346,10 @@ td small {
     display:block;
     color:var(--muted)
 }
+.election-link {
+    text-decoration:underline;
+    text-underline-offset:.2em
+}
 .empty {
     padding:40px 18px;
     text-align:center;

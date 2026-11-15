@@ -1,21 +1,54 @@
 @model voting.Models.DashboardViewModel
-@if(Model.Elections.Count == 0){<div class="empty">
-<strong>No elections created</strong>Create your first election to get started.</div>}else{<div class="table-wrapper" role="region" aria-label="Elections" tabindex="0">
-<table>
-<thead>
-<tr>
-<th scope="col">ELECTION</th>
-<th scope="col">VOTING PERIOD · UTC</th>
-<th scope="col">STATUS</th>
-</tr>
-</thead>
-<tbody>@foreach(var e in Model.Elections.OrderByDescending(e=>e.Id)){<tr>
-<th scope="row">@e.Name</th>
-<td>@e.StartsAtUtc.ToString("MMM d, HH:mm")<small>to @e.EndsAtUtc.ToString("MMM d, yyyy HH:mm")</small>
-</td>
-<td>
-<span class="badge @e.Status.ToLowerInvariant()">@e.Status</span>
-</td>
-</tr>}</tbody>
-</table>
-</div>}
+@{
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    var action = ViewContext.RouteData.Values["action"]?.ToString();
+    var electionAction = (controller, action) switch
+    {
+        ("Admin", "Positions" or "Candidates") => action,
+        ("Admin", _) => "Elections",
+        ("Student", "Candidates") => "Candidates",
+        ("Student", _) => "Vote",
+        _ => null
+    };
+    var now = DateTime.UtcNow;
+}
+
+@if (Model.Elections.Count == 0)
+{
+    <div class="empty"><strong>@(controller == "Student" && action == "Candidates" ? "No open elections" : "No elections to show")</strong></div>
+}
+else
+{
+    <div class="table-wrapper" role="region" aria-label="Elections" tabindex="0">
+        <table>
+            <thead>
+                <tr>
+                    <th scope="col">ELECTION</th>
+                    <th scope="col">VOTING PERIOD · UTC</th>
+                    <th scope="col">STATUS</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var election in Model.Elections.OrderByDescending(e => e.Id))
+                {
+                    var submitted = controller == "Student" && Model.Ballots.Any(b => b.ElectionId == election.Id);
+                    var badge = election.IsVotingOpenAt(now) ? "open" : election.Status == "Closed" ? "closed" : "";
+                    <tr>
+                        <th scope="row">
+                            @if (electionAction == null)
+                            {
+                                @election.Name
+                            }
+                            else
+                            {
+                                <a class="election-link" asp-action="@electionAction" asp-route-id="@election.Id">@election.Name</a>
+                            }
+                        </th>
+                        <td>@election.StartsAtUtc.ToString("MMM d, HH:mm")<small>to @election.EndsAtUtc.ToString("MMM d, yyyy HH:mm")</small></td>
+                        <td><span class="badge @badge">@(submitted ? "Ballot submitted" : election.VotingStatusAt(now))</span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}

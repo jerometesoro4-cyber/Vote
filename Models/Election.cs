@@ -4,12 +4,27 @@ namespace voting.Models;
 
 public class Election
 {
+    public static IReadOnlyList<string> StandardPositions { get; } =
+        ["President", "Vice President", "Secretary", "Treasurer", "Auditor"];
+
     public int Id { get; set; }
     [Required, MaxLength(150)] public string Name { get; set; } = "";
     public DateTime StartsAtUtc { get; set; }
     public DateTime EndsAtUtc { get; set; }
     [Required, MaxLength(20)] public string Status { get; set; } = "Draft";
     public List<Position> Positions { get; set; } = [];
+
+    public bool HasCompleteBallot() => Positions.Count > 0 && Positions.All(p => p.Candidates.Count > 0);
+
+    public bool IsVotingOpenAt(DateTime now) => Status == "Open" && StartsAtUtc <= now && now < EndsAtUtc;
+
+    public string VotingStatusAt(DateTime now) => Status switch
+    {
+        "Open" when now < StartsAtUtc => "Scheduled",
+        "Open" when now >= EndsAtUtc => "Voting ended",
+        "Open" => "Voting open",
+        _ => Status
+    };
 }
 
 public class Position

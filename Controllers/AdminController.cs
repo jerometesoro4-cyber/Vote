@@ -13,11 +13,19 @@ public class AdminController(VotingDbContext db) : Controller
 {
     public async Task<IActionResult> Index() => View(await DashboardViewModel.LoadAsync(db, true));
     public async Task<IActionResult> Users() => View(await DashboardViewModel.LoadAsync(db, true));
-    public async Task<IActionResult> Elections() => View(await DashboardViewModel.LoadAsync(db, true));
-    public async Task<IActionResult> Candidates() => View(await DashboardViewModel.LoadAsync(db, true));
-    public async Task<IActionResult> Positions() => View(await DashboardViewModel.LoadAsync(db, true));
+    public Task<IActionResult> Elections(int? id) => ElectionPage(id);
+    public Task<IActionResult> Candidates(int? id) => ElectionPage(id);
+    public Task<IActionResult> Positions(int? id) => ElectionPage(id);
     public async Task<IActionResult> Monitoring() => View(await DashboardViewModel.LoadAsync(db, true));
     public async Task<IActionResult> Results() => View(await DashboardViewModel.LoadAsync(db, true));
+
+    private async Task<IActionResult> ElectionPage(int? id)
+    {
+        var model = await DashboardViewModel.LoadAsync(db, true);
+        model.SelectedElection = model.Elections.SingleOrDefault(e => e.Id == id);
+        return id.HasValue && model.SelectedElection == null ? NotFound() : View(model);
+    }
+
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> Settings()
     {
@@ -58,18 +66,22 @@ public class AdminController(VotingDbContext db) : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> CreateElection(string? name, DateTime startsAtUtc, DateTime endsAtUtc)
+    public async Task<IActionResult> CreateElection(string? name, DateTime startsAtUtc, DateTime endsAtUtc, bool includeStandardPositions = true)
     {
         name = name?.Trim();
         if (!ModelState.IsValid || string.IsNullOrEmpty(name) || name.Length > 150 || startsAtUtc == default || endsAtUtc <= startsAtUtc)
-            TempData["Error"] = "Enter an election name and a valid UTC start and end time.";
-        else
         {
-            db.Elections.Add(new Election { Name = name, StartsAtUtc = startsAtUtc, EndsAtUtc = endsAtUtc });
-            await db.SaveChangesAsync();
-            TempData["Success"] = "Election created as a draft.";
+            TempData["Error"] = "Enter an election name and a valid UTC start and end time.";
+            return RedirectToAction(nameof(Elections));
         }
-        return RedirectToAction(nameof(Elections));
+
+        var election = new Election { Name = name, StartsAtUtc = startsAtUtc, EndsAtUtc = endsAtUtc };
+        if (includeStandardPositions)
+            election.Positions.AddRange(Election.StandardPositions.Select(name => new Position { Name = name }));
+        db.Elections.Add(election);
+        await db.SaveChangesAsync();
+        TempData["Success"] = "Election created as a draft.";
+        return RedirectToAction(nameof(Elections), new { id = election.Id });
     }
 
     [HttpPost, ValidateAntiForgeryToken]
@@ -79,7 +91,7 @@ public class AdminController(VotingDbContext db) : Controller
         var election = await db.Elections.Include(e => e.Positions).ThenInclude(p => p.Candidates).SingleOrDefaultAsync(e => e.Id == id);
         if (election == null || !((election.Status == "Draft" && status == "Open") || (election.Status == "Open" && status == "Closed")))
             TempData["Error"] = "Only draft elections can be opened, and only open elections can be closed.";
-        else if (status == "Open" && (election.EndsAtUtc <= DateTime.UtcNow || election.Positions.Count == 0 || election.Positions.Any(p => p.Candidates.Count == 0)))
+        else if (status == "Open" && (election.EndsAtUtc <= DateTime.UtcNow || !election.HasCompleteBallot()))
             TempData["Error"] = "An election needs a future end time and at least one candidate for each position before it can open.";
         else
         {
@@ -88,35 +100,46 @@ public class AdminController(VotingDbContext db) : Controller
             TempData["Success"] = "Election status updated.";
         }
         await transaction.CommitAsync();
-        return RedirectToAction(nameof(Elections));
+        return RedirectToAction(nameof(Elections), new { id = election?.Id });
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> AddPosition(int electionId, string? name)
+    public async Task<IActionResult> AddPosition(int electionId, string? name, bool addStandard = false)
     {
-        name = name?.Trim();
+        name = name?.Trim() ?? "";
         await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
-        var election = await db.Elections.FindAsync(electionId);
-        if (election?.Status != "Draft" || string.IsNullOrEmpty(name) || name.Length > 100)
-            TempData["Error"] = "Enter a position name for a draft election.";
+        var election = await db.Elections.Include(e => e.Positions).SingleOrDefaultAsync(e => e.Id == electionId);
+        if (!ModelState.IsValid || election?.Status != "Draft")
+            TempData["Error"] = "Positions can only be added to a draft election.";
+        else if (!addStandard && (name.Length == 0 || name.Length > 100))
+            TempData["Error"] = "Enter a position name between 1 and 100 characters.";
         else
         {
-            db.Positions.Add(new Position { ElectionId = electionId, Name = name });
-            await db.SaveChangesAsync();
-            TempData["Success"] = "Position added.";
+            var names = addStandard ? Election.StandardPositions : [name];
+            var additions = names.Except(election.Positions.Select(p => p.Name), StringComparer.OrdinalIgnoreCase)
+                .Select(n => new Position { Name = n }).ToList();
+            if (additions.Count == 0)
+                TempData["Error"] = addStandard ? "The standard positions already exist in this election." : "That position already exists in this election.";
+            else
+            {
+                election.Positions.AddRange(additions);
+                await db.SaveChangesAsync();
+                TempData["Success"] = addStandard ? "Standard positions added." : "Position added.";
+            }
         }
         await transaction.CommitAsync();
-        return RedirectToAction(nameof(Positions));
+        return RedirectToAction(nameof(Positions), new { id = election?.Id });
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> AddCandidate(int positionId, string? name, string? party, string? platform)
+    public async Task<IActionResult> AddCandidate(int positionId, string? name, string? party, string? platform, int? electionId)
     {
         name = name?.Trim(); party = party?.Trim() ?? ""; platform = platform?.Trim() ?? "";
         await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         var position = await db.Positions.Include(p => p.Election).SingleOrDefaultAsync(p => p.Id == positionId);
-        if (position?.Election.Status != "Draft" || string.IsNullOrEmpty(name) || name.Length > 100 || party.Length > 100 || platform.Length > 2000)
-            TempData["Error"] = "Enter a valid candidate for a position in a draft election.";
+        if (!ModelState.IsValid || position?.Election.Status != "Draft" || (electionId.HasValue && position.ElectionId != electionId)
+            || string.IsNullOrEmpty(name) || name.Length > 100 || party.Length > 100 || platform.Length > 2000)
+            TempData["Error"] = "Enter a valid candidate and choose a position in the selected draft election.";
         else
         {
             db.Candidates.Add(new Candidate { PositionId = positionId, Name = name, Party = party, Platform = platform });
@@ -124,6 +147,6 @@ public class AdminController(VotingDbContext db) : Controller
             TempData["Success"] = "Candidate added.";
         }
         await transaction.CommitAsync();
-        return RedirectToAction(nameof(Candidates));
+        return RedirectToAction(nameof(Candidates), new { id = electionId ?? position?.ElectionId });
     }
 }

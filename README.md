@@ -108,14 +108,14 @@ Invitation hashes are stored in SQL Server; the original code cannot be recovere
 
 As an administrator:
 
-1. Create a **draft election** with a name and UTC start/end times.
-2. Add its **positions**.
-3. Add at least one **candidate** for each position.
-4. Change the election from **Draft** to **Open**. Voting is available only within the configured period.
+1. Create a **draft election** for the room, such as **Room 101 Election**, with UTC start/end times.
+2. New drafts include President, Vice President, Secretary, Treasurer, and Auditor by default. Open **Positions** to add custom offices or add the standard positions to an existing draft.
+3. Open **Candidates** and add at least one candidate for each position. Saving a position or candidate keeps the selected election open.
+4. Return to the selected election and click **Open voting**. Students can vote within the configured period.
 5. Monitor ballot counts and tallies from the dashboard.
 6. Change the election from **Open** to **Closed** to publish results.
 
-As a student, open an available election, review the candidates, choose one candidate for every position, and submit the final ballot. Each student account can submit **one ballot per election**. The history page shows successful submissions.
+As a student, open **Elections** and click the name of your room's election. Use **Review candidates** to see that election's candidates. Choose one candidate per position and click **Submit final ballot**. Each student account can submit **one ballot per election**. **My ballots** confirms successful submissions.
 
 Election content is locked after opening. Closed elections cannot be reopened. Public/student results display only closed elections. All schedule inputs and timestamps are **UTC**; Philippine time is UTC+8.
 
@@ -154,7 +154,7 @@ python tests/registration_smoke.py
 
 `auth_smoke.py` uses existing accounts to check both roles, invalid login, CSRF, logout, and redirects. `registration_smoke.py` checks the shared registration form and rejects invalid submissions without creating accounts.
 
-`tests/smoke.py` additionally requires SQLCMD and local Windows authentication to the default `ACMCLVoting` database. It creates a uniquely named test election, exercises the voting workflow, and removes only its fixture. Run it only on a local development database; it does not automatically follow an overridden connection string.
+`tests/smoke.py` additionally requires SQLCMD and local Windows authentication. If the test app uses a database other than `ACMCLVoting`, set `VOTE_TEST_DB` to match. The test creates two uniquely named room elections, checks the voting workflow, and removes those fixtures. Run it on a local development database.
 
 ## Troubleshooting
 
