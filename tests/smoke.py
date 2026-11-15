@@ -3,6 +3,7 @@ Set VOTE_TEST_DB to match the test app's SQL Server database (default ACMCLVotin
 The test removes its two uniquely named elections in finally.
 """
 from datetime import datetime, timedelta, timezone
+from html import unescape
 import os
 import re
 import subprocess
@@ -41,6 +42,11 @@ def assert_redirect(response, target):
     assert response.status_code == 302 and response.headers.get('Location') == target, (
         response.status_code, response.headers.get('Location'), target,
     )
+
+
+def result_titles(markup):
+    summaries = re.findall(r'<summary\b[^>]*>(.*?)</summary>', markup, re.S)
+    return [unescape(re.sub(r'<[^>]*>', '', summary)).strip() for summary in summaries]
 
 
 def login(role):
@@ -113,10 +119,14 @@ try:
     assert sql(f'SELECT COUNT(*) FROM Positions WHERE ElectionId={other}') == '0'
     assert f'href="{setup}"' in page(admin, '/Admin/Elections')
     assert f'href="/Admin/Candidates/{first}"' in page(admin, positions)
-    assert_redirect(post(admin, '/Admin/AddPosition', positions, {'electionId': first, 'name': 'Room Representative'}), positions)
+    representative = {'electionId': first, 'name': 'Room Representative', 'minSelections': 2, 'maxSelections': 3}
+    assert_redirect(post(admin, '/Admin/AddPosition', positions, {**representative, 'maxSelections': 1}), positions)
+    assert 'maximum must be at least the minimum' in page(admin, positions)
+    assert_redirect(post(admin, '/Admin/AddPosition', positions, representative), positions)
     assert 'Room Representative' in page(admin, positions)
+    representative_id = int(sql(f"SELECT Id FROM Positions WHERE ElectionId={first} AND Name='Room Representative'"))
     assert_redirect(post(admin, '/Admin/ChangeStatus', setup, {'id': first, 'status': 'Open'}), setup)
-    assert 'one candidate for each position' in page(admin, setup)
+    assert "each position's minimum" in unescape(page(admin, setup))
 
     other_positions = f'/Admin/Positions/{other}'
     assert_redirect(post(admin, '/Admin/AddPosition', other_positions, {'electionId': other, 'name': 'president'}), other_positions)
@@ -126,10 +136,20 @@ try:
     assert student.get(BASE + f'/Student/Vote/{first}').status_code == 404
 
     first_choices = candidates_for(first, 'First Room Candidate')
-    fields = {'electionId': first, **first_choices}
+    assert_redirect(post(admin, '/Admin/ChangeStatus', setup, {'id': first, 'status': 'Open'}), setup)
+    assert sql(f'SELECT Status FROM Elections WHERE Id={first}') == 'Draft'
+    representative_field = f'choices[{representative_id}]'
+    admin_candidates = f'/Admin/Candidates/{first}'
+    for number in range(2, 5):
+        assert_redirect(post(admin, '/Admin/AddCandidate', admin_candidates, {
+            'electionId': first, 'positionId': representative_id, 'name': f'Representative {number}',
+        }), admin_candidates)
+    representative_ids = [int(value) for value in sql(
+        f'SELECT Id FROM Candidates WHERE PositionId={representative_id} ORDER BY Id',
+    ).split()]
+    fields = {'electionId': first, **first_choices, representative_field: representative_ids[:2]}
     other_choices = candidates_for(other, 'Second Room Candidate')
     other_position_id = int(sql(f'SELECT MIN(Id) FROM Positions WHERE ElectionId={other}'))
-    admin_candidates = f'/Admin/Candidates/{first}'
     assert_redirect(post(admin, '/Admin/AddCandidate', admin_candidates, {
         'electionId': first, 'positionId': other_position_id, 'name': 'Mismatched Room Candidate',
     }), admin_candidates)
@@ -154,7 +174,7 @@ try:
         assert scheduled_row and room102 in scheduled_row[1] and 'Scheduled' in scheduled_row[1]
         assert 'Start voting' not in scheduled_row[1]
     scheduled_ballot = page(student, other_ballot)
-    assert 'Scheduled' in scheduled_ballot and 'PHT' in scheduled_ballot and 'Submit final ballot' not in scheduled_ballot
+    assert 'Scheduled' in scheduled_ballot and 'PHT' in scheduled_ballot and 'Review ballot' not in scheduled_ballot
     assert other_directory not in page(student, '/Student/Candidates')
     assert_redirect(student.get(BASE + other_directory, allow_redirects=False), '/Student/Candidates')
     assert_redirect(post(student, '/Student/Vote', other_ballot, {'electionId': other, **other_choices}), other_ballot)
@@ -169,7 +189,7 @@ try:
     assert 'Scheduled' in page(student, other_ballot)
     assert_redirect(post(admin, '/Admin/UpdateSchedule', other_setup, schedule_update), other_setup)
     assert 'Voting schedule updated' in page(admin, other_setup)
-    assert 'Submit final ballot' in page(student, other_ballot)
+    assert 'Review ballot' in page(student, other_ballot)
     assert sql(f'SELECT CONVERT(varchar(16), StartsAtUtc, 126) FROM Elections WHERE Id={other}') == start.strftime('%Y-%m-%dT%H:%M')
     choices_page = page(student, '/Student/Candidates')
     assert f'href="{directory}"' in choices_page and f'href="{other_directory}"' in choices_page
@@ -178,30 +198,62 @@ try:
     assert 'First Room Candidate' in scoped_student and 'Second Room Candidate' not in scoped_student
     assert f'href="{ballot}"' in scoped_student
 
+    assert_redirect(post(admin, '/Admin/SetElectionGroup', setup, {'id': first, 'requiredGroup': prefix}), setup)
+    assert student.get(BASE + ballot).status_code == 404
+    assert ballot not in page(student, '/Student/ActiveElections')
+    assert_redirect(post(student, '/Student/Vote', '/Student/ActiveElections', fields), '/Student/ActiveElections')
+    assert 'unavailable for your voting group' in page(student, '/Student/ActiveElections')
+    assert_redirect(post(admin, '/Admin/SetElectionGroup', setup, {'id': first, 'requiredGroup': ''}), setup)
+
     ballot_screen = page(student, ballot)
-    assert 'Submit final ballot' in ballot_screen and f'href="{directory}"' in ballot_screen
+    assert 'Review ballot' in ballot_screen and 'Submit final ballot' not in ballot_screen
+    assert 'Read profile' in ballot_screen and f'href="{directory}"' not in ballot_screen
     assert 'Second Room Candidate' not in ballot_screen
-    assert ballot_screen.count('name="choices[') == len(STANDARD_POSITIONS) + 1
+    assert ballot_screen.count('type="radio"') == len(STANDARD_POSITIONS)
+    assert ballot_screen.count('type="checkbox"') == len(representative_ids)
+    assert 'Select 2–3 candidates.' in unescape(ballot_screen)
+    for invalid_choices in (representative_ids[:1], representative_ids):
+        assert_redirect(post(student, '/Student/Vote', ballot, {**fields, representative_field: invalid_choices}), ballot)
+        assert 'Select 2–3 candidates for Room Representative.' in unescape(page(student, ballot))
+    duplicate_choices = {**fields, representative_field: [representative_ids[0]] * 2}
+    assert_redirect(post(student, '/Student/Vote', ballot, duplicate_choices), ballot)
+    assert 'Select valid candidates' in page(student, ballot)
     first_choice, second_choice = list(first_choices)[:2]
     wrong_room = {**fields, first_choice: next(iter(other_choices.values()))}
     assert_redirect(post(student, '/Student/Vote', ballot, wrong_room), ballot)
-    assert 'Select one valid candidate' in page(student, ballot)
+    assert 'Select valid candidates' in page(student, ballot)
     swapped = {**fields, first_choice: fields[second_choice], second_choice: fields[first_choice]}
     assert_redirect(post(student, '/Student/Vote', ballot, swapped), ballot)
-    assert 'Select one valid candidate' in page(student, ballot)
+    assert 'Select valid candidates' in page(student, ballot)
     assert sql(f'SELECT COUNT(*) FROM Ballots WHERE ElectionId IN ({first}, {other})') == '0'
 
-    assert_redirect(post(student, '/Student/Vote', ballot, fields), '/Student/History')
+    forged = {'electionId': first, 'step': 'Confirm', 'reviewToken': 'not-a-reviewed-ballot'}
+    assert_redirect(post(student, '/Student/Vote', ballot, forged), ballot)
+    assert 'Review your choices before submitting' in page(student, ballot)
+    review = post(student, '/Student/Vote', ballot, fields)
+    assert review.status_code == 200 and 'Review your ballot' in review.text
+    assert 'Representative 2' in review.text and 'Representative 3' not in review.text
+    assert sql(f'SELECT COUNT(*) FROM Ballots WHERE ElectionId={first}') == '0'
+    review_token = re.search(r'name="reviewToken" value="([^"]+)"', review.text).group(1)
+    confirmed = {'electionId': first, 'step': 'Confirm', 'reviewToken': unescape(review_token)}
+    confirmation = post(student, '/Student/Vote', ballot, confirmed)
+    if confirmation.headers.get('Location') == ballot:
+        error = re.search(r'<div\b[^>]*role="alert"[^>]*>(.*?)</div>', page(student, ballot), re.S)
+        raise AssertionError(unescape(error.group(1)) if error else 'Confirmation returned to the ballot.')
+    assert_redirect(confirmation, '/Student/History')
     history = page(student, '/Student/History')
     assert room101 in history and 'Your ballot has been submitted.' in history
     submitted = page(student, ballot)
-    assert 'Ballot submitted' in submitted and 'Submit final ballot' not in submitted
+    assert 'Ballot submitted' in submitted and 'Review ballot' not in submitted
     submitted_list = page(student, '/Student/ActiveElections')
     submitted_row = re.search(fr'<a\b[^>]*\bhref="{ballot}"[^>]*>(.*?)</a>', submitted_list, re.S)
     assert submitted_row and room101 in submitted_row[1] and 'Ballot submitted' in submitted_row[1]
     assert 'Start voting' not in submitted_row[1]
-    assert_redirect(post(student, '/Student/Vote', ballot, fields), ballot)
+    assert_redirect(post(student, '/Student/Vote', ballot, confirmed), ballot)
     assert sql(f'SELECT COUNT(*) FROM Ballots WHERE ElectionId={first}') == '1'
+    assert sql(f'SELECT COUNT(*) FROM BallotSelections WHERE PositionId={representative_id}') == '2'
+    assert room101 in result_titles(page(admin, '/Admin/Results'))
+    assert room101 not in page(student, '/Student/Results')
     assert 'Save schedule' not in page(admin, setup)
     locked_update = {'id': first, **manila_schedule(start + timedelta(hours=2), end)}
     assert_redirect(post(admin, '/Admin/UpdateSchedule', setup, locked_update), setup)
@@ -211,9 +263,13 @@ try:
 
     assert_redirect(post(admin, '/Admin/ChangeStatus', setup, {'id': first, 'status': 'Closed'}), setup)
     assert directory not in page(student, '/Student/Candidates')
-    assert room101 in page(student, '/PublicPortal/Results')
-    assert room101 in page(student, '/Student/Results')
-    print('PASS: Philippine-time schedules, schedule correction and locking, room setup and candidate isolation, ballot submission, duplicate rejection, and results.')
+    published = page(student, '/PublicPortal/Results')
+    assert room101 in result_titles(published) and room102 not in published
+    assert 'style="width:50%"' in published and 'Representative 2' in published and '1 vote' in published
+    assert_redirect(post(admin, '/Admin/ChangeStatus', other_setup, {'id': other, 'status': 'Closed'}), other_setup)
+    published = page(student, '/Student/Results')
+    assert {room101, room102} <= set(result_titles(published))
+    print('PASS: schedule, room setup, group eligibility, reviewed ballots, custom selection limits, duplicate rejection, and result cards.')
 finally:
     sql(f"""
         BEGIN TRANSACTION;

@@ -14,6 +14,7 @@
 <th scope="col">NAME</th>
 <th scope="col">EMAIL</th>
 <th scope="col">YEAR LEVEL</th>
+<th scope="col">VOTING GROUP</th>
 <th scope="col">REGISTERED · UTC</th>
 </tr>
 </thead>
@@ -21,6 +22,13 @@
 <th scope="row">@u.FullName</th>
 <td>@u.Email</td>
 <td>@u.YearLevel</td>
+<td>
+    <form class="voter-group-form" asp-action="AssignVotingGroup" method="post">
+        <input type="hidden" name="id" value="@u.Id"/>
+        <input name="votingGroup" value="@u.VotingGroup" maxlength="100" aria-label="Voting group for @u.FullName"/>
+        <button class="button secondary" type="submit">Save group</button>
+    </form>
+</td>
 <td>@u.CreatedAtUtc.ToString("MMM d, yyyy")</td>
 </tr>}</tbody>
 </table>

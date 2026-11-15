@@ -1,0 +1,55 @@
+@model IReadOnlyList<CandidateResult>
+@using System.Globalization
+
+<div class="results-board">
+@if (Model.Count == 0)
+{
+    <p class="list-empty">No results available.</p>
+}
+else
+{
+    <p class="muted">Bars show each candidate's share of selections for their position.</p>
+    @foreach (var election in Model.GroupBy(r => new { r.ElectionId, r.ElectionName }).OrderByDescending(group => group.Key.ElectionId))
+    {
+        <details class="panel result-card">
+            <summary>
+                <svg class="result-icon" aria-hidden="true" width="22" height="22"><use href="/images/icons.svg#chart-column"></use></svg>
+                <span>@election.Key.ElectionName</span>
+            </summary>
+            <div class="result-tallies">
+                @foreach (var position in election.GroupBy(r => new { r.PositionId, r.PositionName }).OrderBy(group => group.Key.PositionId))
+                {
+                    var total = position.Sum(r => (long)r.Votes);
+                    <section class="result-position">
+                        <h2>@position.Key.PositionName</h2>
+                        <ul class="result-candidates" role="list">
+                            @foreach (var candidate in position.OrderByDescending(r => r.Votes).ThenBy(r => r.CandidateName))
+                            {
+                                var percentage = total == 0 ? 0 : 100.0 * candidate.Votes / total;
+                                <li>
+                                    <div class="result-candidate">
+                                        <span>
+                                            @candidate.CandidateName
+                                            @if (!string.IsNullOrWhiteSpace(candidate.Party))
+                                            {
+                                                <small class="result-party">@candidate.Party</small>
+                                            }
+                                        </span>
+                                        <span class="result-metrics">
+                                            <strong>@candidate.Votes @(candidate.Votes == 1 ? "vote" : "votes")</strong>
+                                            <span class="result-share">@percentage.ToString("0.#", CultureInfo.InvariantCulture)%</span>
+                                        </span>
+                                    </div>
+                                    <div class="result-bar" aria-hidden="true">
+                                        <span style="width:@(percentage.ToString("0.##", CultureInfo.InvariantCulture))%"></span>
+                                    </div>
+                                </li>
+                            }
+                        </ul>
+                    </section>
+                }
+            </div>
+        </details>
+    }
+}
+</div>

@@ -3,16 +3,21 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#10392a" />
     <title>@ViewData["Title"] | ACMCL Voting</title>
     <link rel="stylesheet" href="~/css/account.css" asp-append-version="true" />
 </head>
 <body>
-    <a class="skip-link" href="#main-content">Skip to sign in</a>
+    <a class="skip-link" href="#main-content">Skip to form</a>
     <div class="auth-shell">
         <header class="auth-brand">
-            <a asp-controller="Home" asp-action="Index" class="brand-name"><img src="~/images/logo.webp" alt="" width="36" height="36"/> <span>ACMCL <strong>Vote</strong></span></a>
+            <a asp-controller="Home" asp-action="Index" class="brand-name">
+                <img src="~/images/logo.webp" alt="" width="68" height="68"/>
+                <span>ACMCL <strong>Vote</strong></span>
+            </a>
+            <p>College election portal</p>
         </header>
-        <main class="auth-main" id="main-content">
+        <main class="auth-main" id="main-content" tabindex="-1">
             <div class="auth-content">@RenderBody()</div>
         </main>
     </div>

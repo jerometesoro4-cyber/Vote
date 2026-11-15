@@ -17,10 +17,6 @@
                 <p>Closes @election.EndsAtManila.ToString("MMM d, yyyy h:mm tt") PHT</p>
             }
         </div>
-        @if (canVote)
-        {
-            <a class="text-link" asp-action="Candidates" asp-route-id="@election.Id">Candidate profiles</a>
-        }
     </div>
     @if (submitted)
     {
@@ -51,38 +47,77 @@
     {
         <p class="list-empty">Ballot unavailable.</p>
     }
+    else if (Model.BallotReviewToken is { } reviewToken)
+    {
+        <section class="panel ballot-review" aria-labelledby="review-heading">
+            <h2 id="review-heading">Review your ballot</h2>
+            <dl>
+                @foreach (var position in election.Positions.OrderBy(p => p.Id))
+                {
+                    <div class="review-choice">
+                        <dt>@position.Name</dt>
+                        <dd>@string.Join(", ", position.Candidates.Where(c => Model.SelectedCandidateIds.Contains(c.Id)).OrderBy(c => c.Id).Select(c => c.Name))</dd>
+                    </div>
+                }
+            </dl>
+            <form asp-action="Vote" method="post" class="ballot-actions">
+                <input type="hidden" name="electionId" value="@election.Id"/>
+                <input type="hidden" name="reviewToken" value="@reviewToken"/>
+                <button class="button secondary" type="submit" name="step" value="Edit">Edit choices</button>
+                <button type="submit" name="step" value="Confirm">Submit final ballot</button>
+            </form>
+        </section>
+    }
     else
     {
         <form asp-action="Vote" method="post" class="ballot-form" aria-labelledby="election-heading">
             <input type="hidden" name="electionId" value="@election.Id"/>
             @foreach (var position in election.Positions.OrderBy(p => p.Id))
             {
-                <fieldset class="ballot-position">
+                var maximum = position.AvailableMaxSelections;
+                var multiple = maximum > 1;
+                <fieldset class="ballot-position" aria-describedby="rule-@position.Id"
+                          data-min-selections="@position.MinSelections" data-max-selections="@maximum">
                     <legend>@position.Name</legend>
+                    <p class="ballot-instruction" id="rule-@position.Id">Select @position.DescribeSelections(maximum).</p>
                     <div class="ballot-options">
                         @foreach (var candidate in position.Candidates.OrderBy(c => c.Id))
                         {
-                            <label class="ballot-choice" for="candidate-@candidate.Id">
-                                <input id="candidate-@candidate.Id" type="radio" name="choices[@position.Id]" value="@candidate.Id" required/>
-                                <span>
-                                    <strong>@candidate.Name</strong>
-                                    @if (!string.IsNullOrWhiteSpace(candidate.Party))
-                                    {
-                                        <small class="candidate-party">@candidate.Party</small>
-                                    }
-                                    @if (!string.IsNullOrWhiteSpace(candidate.Platform))
-                                    {
-                                        <small class="candidate-platform">@candidate.Platform</small>
-                                    }
-                                </span>
-                            </label>
+                            var hasProfile = !string.IsNullOrWhiteSpace(candidate.Platform);
+                            <div class="ballot-option @(hasProfile ? "has-profile" : null)">
+                                <label class="ballot-choice" for="candidate-@candidate.Id">
+                                    <input id="candidate-@candidate.Id" type="@(multiple ? "checkbox" : "radio")" name="choices[@position.Id]"
+                                           value="@candidate.Id" required="@(!multiple)" checked="@Model.SelectedCandidateIds.Contains(candidate.Id)"/>
+                                    <span>
+                                        <strong>@candidate.Name</strong>
+                                        @if (!string.IsNullOrWhiteSpace(candidate.Party))
+                                        {
+                                            <small class="candidate-party">@candidate.Party</small>
+                                        }
+                                    </span>
+                                </label>
+                                @if (hasProfile)
+                                {
+                                    <details class="ballot-profile">
+                                        <summary aria-label="Read profile for @candidate.Name">Read profile</summary>
+                                        <p>@candidate.Platform</p>
+                                    </details>
+                                }
+                            </div>
                         }
                     </div>
                 </fieldset>
             }
             <div class="ballot-actions">
-                <button type="submit">Submit final ballot</button>
+                <button type="submit">Review ballot</button>
             </div>
         </form>
     }
 </div>
+
+@section Scripts {
+    @if (canVote && Model.BallotReviewToken == null && election.Positions.Any(p => p.AvailableMaxSelections > 1))
+    {
+        <script src="~/js/site.js" asp-append-version="true" defer></script>
+    }
+}

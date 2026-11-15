@@ -25,14 +25,21 @@ public class VotingDbContext(DbContextOptions<VotingDbContext> options) : DbCont
         account.Property(user => user.PasswordHash).HasColumnName("password_hash").HasMaxLength(500).IsRequired();
         account.Property(user => user.Role).HasColumnName("role").HasMaxLength(20).IsRequired();
         account.Property(user => user.YearLevel).HasColumnName("year_level").HasMaxLength(100);
+        account.Property(user => user.VotingGroup).HasColumnName("voting_group").HasMaxLength(100);
         account.Property(user => user.CreatedAtUtc).HasColumnName("created_at_utc");
         account.HasIndex(user => user.NormalizedEmail).IsUnique().HasDatabaseName("IX_user_accounts_normalized_email");
 
         modelBuilder.Entity<AdminInvitation>().HasIndex(i => i.CodeHash).IsUnique();
         modelBuilder.Entity<AdminInvitation>().HasOne(i => i.Creator).WithMany().HasForeignKey(i => i.CreatorId).OnDelete(DeleteBehavior.Restrict);
 
+        var position = modelBuilder.Entity<Position>();
+        position.ToTable("Positions", table =>
+            table.HasCheckConstraint("CK_Positions_SelectionLimits", "[MinSelections] >= 1 AND [MaxSelections] >= [MinSelections]"));
+        position.Property(p => p.MinSelections).HasDefaultValue(1);
+        position.Property(p => p.MaxSelections).HasDefaultValue(1);
+
         modelBuilder.Entity<Ballot>().HasIndex(b => new { b.UserAccountId, b.ElectionId }).IsUnique();
-        modelBuilder.Entity<BallotSelection>().HasIndex(s => new { s.BallotId, s.PositionId }).IsUnique();
+        modelBuilder.Entity<BallotSelection>().HasIndex(s => new { s.BallotId, s.CandidateId }).IsUnique();
         modelBuilder.Entity<Candidate>().HasAlternateKey(c => new { c.Id, c.PositionId });
         modelBuilder.Entity<BallotSelection>().HasOne(s => s.Candidate).WithMany()
             .HasForeignKey(s => new { s.CandidateId, s.PositionId }).HasPrincipalKey(c => new { c.Id, c.PositionId })

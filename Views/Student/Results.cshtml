@@ -1,35 +1,8 @@
 @model voting.Models.DashboardViewModel
-@{ViewData["Title"]="Results";}<div class="page-heading">
-<div>
-<h1>Results</h1>
-</div>
-</div>
-<section class="panel">
-@if (Model.Results.Count == 0)
-{
-    <p class="list-empty">No published results.</p>
+@{
+    ViewData["Title"] = "Results";
 }
-else
-{
-<div class="table-wrapper" role="region" aria-label="Election results" tabindex="0">
-<table>
-<thead>
-<tr>
-<th scope="col">CANDIDATE</th>
-<th scope="col">POSITION</th>
-<th scope="col">ELECTION</th>
-<th scope="col">VOTES</th>
-</tr>
-</thead>
-<tbody>@foreach(var r in Model.Results.OrderBy(r=>r.ElectionId).ThenBy(r=>r.PositionName).ThenByDescending(r=>r.Votes)){<tr>
-<th scope="row">@r.CandidateName</th>
-<td>@r.PositionName</td>
-<td>@r.ElectionName</td>
-<td>
-<strong>@r.Votes</strong>
-</td>
-</tr>}</tbody>
-</table>
+<div class="page-heading results-heading">
+    <h1>Results</h1>
 </div>
-}
-</section>
+<partial name="_ResultCards" model="Model.Results"/>

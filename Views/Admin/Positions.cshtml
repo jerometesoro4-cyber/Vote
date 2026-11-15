@@ -31,6 +31,17 @@ else
                     <label for="position">Position name</label>
                     <input id="position" name="name" required maxlength="100" placeholder="e.g. Room Representative"/>
                 </div>
+                <div class="form-grid form-actions">
+                    <div class="field">
+                        <label for="min-selections">Minimum choices</label>
+                        <input id="min-selections" name="minSelections" type="number" min="1" value="1" required/>
+                    </div>
+                    <div class="field">
+                        <label for="max-selections">Maximum choices (optional)</label>
+                        <input id="max-selections" name="maxSelections" type="number" min="1" aria-describedby="max-help"/>
+                        <small id="max-help">Leave blank to use the minimum for both limits.</small>
+                    </div>
+                </div>
                 <button class="form-actions" type="submit">Add position</button>
             </form>
         </section>
@@ -54,7 +65,7 @@ else
         @foreach (var position in election.Positions.OrderBy(p => p.Id))
         {
             <div class="activity">
-                <p><strong>@position.Name</strong><small>@position.Candidates.Count candidates</small></p>
+                <p><strong>@position.Name</strong><small>@position.Candidates.Count on the ballot · Select @position.DescribeSelections(position.MaxSelections)</small></p>
             </div>
         }
         @if (election.Positions.Count > 0)

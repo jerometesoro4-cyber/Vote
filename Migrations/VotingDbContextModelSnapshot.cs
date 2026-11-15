@@ -108,7 +108,7 @@ namespace voting.Migrations
 
                     b.HasIndex("PositionId");
 
-                    b.HasIndex("BallotId", "PositionId")
+                    b.HasIndex("BallotId", "CandidateId")
                         .IsUnique();
 
                     b.HasIndex("CandidateId", "PositionId");
@@ -165,6 +165,10 @@ namespace voting.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<string>("RequiredGroup")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<DateTime>("StartsAtUtc")
                         .HasColumnType("datetime2");
 
@@ -189,6 +193,16 @@ namespace voting.Migrations
                     b.Property<int>("ElectionId")
                         .HasColumnType("int");
 
+                    b.Property<int>("MaxSelections")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
+                    b.Property<int>("MinSelections")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -198,7 +212,10 @@ namespace voting.Migrations
 
                     b.HasIndex("ElectionId");
 
-                    b.ToTable("Positions");
+                    b.ToTable("Positions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Positions_SelectionLimits", "[MinSelections] >= 1 AND [MaxSelections] >= [MinSelections]");
+                        });
                 });
 
             modelBuilder.Entity("voting.Models.UserAccount", b =>
@@ -243,6 +260,11 @@ namespace voting.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)")
                         .HasColumnName("role");
+
+                    b.Property<string>("VotingGroup")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("voting_group");
 
                     b.Property<string>("YearLevel")
                         .HasMaxLength(100)

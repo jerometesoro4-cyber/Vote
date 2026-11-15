@@ -1,5 +1,12 @@
 @model voting.Models.DashboardViewModel
-@{ ViewData["Title"] = "Overview"; var turnout = Model.StudentCount == 0 || Model.Elections.Count == 0 ? 0 : (int)Math.Round(100.0 * Model.BallotCount / (Model.StudentCount * Model.Elections.Count)); }
+@{
+    ViewData["Title"] = "Overview";
+    var students = Model.Users.Where(u => u.Role == "Student");
+    var ballotsByElection = Model.Ballots.ToLookup(b => b.ElectionId);
+    var possibleBallots = Model.Elections.Sum(e => students.Where(u => e.AllowsVoterGroup(u.VotingGroup)).Select(u => u.Id)
+        .Union(ballotsByElection[e.Id].Select(b => b.UserAccountId)).Count());
+    var turnout = possibleBallots == 0 ? 0 : (int)Math.Round(100.0 * Model.BallotCount / possibleBallots);
+}
 <div class="page-heading">
 <div>
 <h1>Election overview</h1>
@@ -61,7 +68,7 @@
 <span style="width:@(Math.Min(turnout,100))%">
 </span>
 </div>
-<p class="muted" style="margin:14px 0 0;font-size:11px">@Model.BallotCount ballots / @(Model.StudentCount * Model.Elections.Count) possible ballots</p>
+<p class="muted" style="margin:14px 0 0;font-size:11px">@Model.BallotCount ballots / @possibleBallots possible ballots</p>
 </section>
 <section class="panel">
 <h2>Quick actions</h2>

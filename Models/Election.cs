@@ -14,6 +14,7 @@ public class Election
     public DateTime StartsAtUtc { get; set; }
     public DateTime EndsAtUtc { get; set; }
     [Required, MaxLength(20)] public string Status { get; set; } = "Draft";
+    [MaxLength(100)] public string? RequiredGroup { get; set; }
     public List<Position> Positions { get; set; } = [];
 
     public DateTime StartsAtManila => TimeZoneInfo.ConvertTimeFromUtc(StartsAtUtc, ManilaTimeZone);
@@ -26,7 +27,10 @@ public class Election
         return ManilaTimeZone.IsInvalidTime(wallTime) ? default : TimeZoneInfo.ConvertTimeToUtc(wallTime, ManilaTimeZone);
     }
 
-    public bool HasCompleteBallot() => Positions.Count > 0 && Positions.All(p => p.Candidates.Count > 0);
+    public bool HasCompleteBallot() => Positions.Count > 0 && Positions.All(p => p.Candidates.Count >= p.MinSelections);
+
+    public bool AllowsVoterGroup(string? group) => RequiredGroup == null
+        || string.Equals(RequiredGroup, group, StringComparison.OrdinalIgnoreCase);
 
     public bool IsVotingOpenAt(DateTime now) => Status == "Open" && StartsAtUtc <= now && now < EndsAtUtc;
 
@@ -44,8 +48,18 @@ public class Position
     public int Id { get; set; }
     public int ElectionId { get; set; }
     [Required, MaxLength(100)] public string Name { get; set; } = "";
+    public int MinSelections { get; set; } = 1;
+    public int MaxSelections { get; set; } = 1;
     public Election Election { get; set; } = null!;
     public List<Candidate> Candidates { get; set; } = [];
+
+    public int AvailableMaxSelections => Math.Min(MaxSelections, Candidates.Count);
+
+    public bool AcceptsSelectionCount(int count) => count >= MinSelections && count <= MaxSelections;
+
+    public string DescribeSelections(int maximum) => MinSelections == maximum
+        ? $"{MinSelections} {(MinSelections == 1 ? "candidate" : "candidates")}"
+        : $"{MinSelections}–{maximum} candidates";
 }
 
 public class Ballot

@@ -29,5 +29,8 @@ public class UserAccount
     [MaxLength(100)]
     public string? YearLevel { get; set; }
 
+    [MaxLength(100)]
+    public string? VotingGroup { get; set; }
+
     public DateTime CreatedAtUtc { get; set; }
 }

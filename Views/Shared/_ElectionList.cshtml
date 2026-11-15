@@ -49,9 +49,14 @@ else
                 (_, "Vote", _, _) when election.IsVotingOpenAt(now) => "Ballot unavailable",
                 _ => election.VotingStatusAt(now)
             };
+            var state = row.CanVote ? "available" : row.Submitted ? "submitted" : label == "Scheduled" ? "scheduled" : null;
             <li>
-                <a class="election-row" href="@href">
+                <a class="election-row @state" href="@href">
                     <span class="election-info">
+                        @if (row.CanVote)
+                        {
+                            <span class="election-availability">Voting open</span>
+                        }
                         <strong class="election-name">@election.Name</strong>
                         @if (period != null)
                         {

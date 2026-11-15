@@ -49,6 +49,8 @@ dotnet run --no-launch-profile -- --migrate
 
 This creates `ACMCLVoting` if needed and applies pending migrations, then exits. It does not start the website. Re-running the command applies only pending migrations. The schema includes accounts, elections, positions, candidates, ballots, and ballot selections.
 
+Run this step when upgrading an existing installation to use custom selection limits or voting groups. Existing positions start with one choice per position and keep their recorded ballots.
+
 Back up an existing database before applying future migrations. Do not remove or roll back an applied migration to troubleshoot a build. Existing PostgreSQL/Supabase records are not imported into this SQL Server database.
 
 ## 4. Create access for the first administrator
@@ -109,13 +111,17 @@ Invitation hashes are stored in SQL Server; the original code cannot be recovere
 As an administrator:
 
 1. Create a **draft election** for the room, such as **Room 101 Election**, with start and end times in Philippine time.
-2. New drafts include President, Vice President, Secretary, Treasurer, and Auditor by default. Open **Positions** to add custom offices or add the standard positions to an existing draft.
-3. Open **Candidates** and add at least one candidate for each position. Saving a position or candidate keeps the selected election open.
+2. New drafts include President, Vice President, Secretary, Treasurer, and Auditor with one choice each. Open **Positions** to add a custom office with its own minimum and maximum choices. Leave the maximum blank if students must choose exactly the minimum.
+3. Open **Candidates** and add at least as many candidates as each position's minimum. Saving a position or candidate keeps the selected election open.
 4. Return to the selected election and click **Open voting**. Students can vote within the configured period.
 5. Monitor ballot counts and tallies from the dashboard.
 6. Change the election from **Open** to **Closed** to publish results.
 
-As a student, open **Elections** and select the row for your room's election when it shows **Start voting**. The ballot lists that election's candidates by position. Choose one candidate per position and select **Submit final ballot**. Each student account can submit **one ballot per election**. **My ballots** shows the submission time.
+For an election limited to a group, assign the students' group under **Voters** and select that group under **Voter access** on the election page. Choose **All students** for an unrestricted election. Voter access is editable until the first ballot or closing.
+
+As a student, select your room's election when it shows **Start voting**. Use **Read profile** to check a candidate's platform on the ballot. Select **Review ballot** to check the selected names, then **Submit final ballot** to record your vote. **My ballots** shows the submission time.
+
+On **Results**, open an election card to see each candidate's count and share of selections for their position.
 
 Positions and candidates are locked after opening. Use **Edit schedule** on the election page to correct its Philippine-time start and end before the first ballot or closing. Schedule times are stored in UTC. Public and student results display only closed elections.
 
@@ -177,6 +183,6 @@ python tests/registration_smoke.py
 
 ## Current limits
 
-School email ownership and voter eligibility are not verified. Password recovery, election renaming and deletion, candidate photographs, QR generation, and production hosting are not implemented. Ballots are linked to accounts in the database; this is not an anonymous-election system. The app has not been audited or load tested for use in a real election.
+Voting group eligibility relies on administrator assignments. School email ownership is not verified. Password recovery, election renaming and deletion, candidate photographs, QR generation, and production hosting are not implemented. Ballots are linked to accounts in the database; this is not an anonymous-election system. The app has not been audited or load tested for use in a real election.
 
 Local databases, invitations, test credentials, screenshots, and build outputs should not be committed. Previously exposed credentials in older Git history require rotation; removing them from current files does not remove historical copies.

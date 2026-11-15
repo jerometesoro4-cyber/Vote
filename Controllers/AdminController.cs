@@ -41,6 +41,12 @@ public class AdminController(VotingDbContext db) : Controller
     private async Task<bool> IsCurrentAdmin() => int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id)
         && await db.UserAccounts.AnyAsync(u => u.Id == id && u.Role == "Admin");
 
+    private static string? CleanVotingGroup(string? group) => string.IsNullOrWhiteSpace(group) ? null : group.Trim();
+
+    private IQueryable<Election> BeforeFirstBallot(int id) => db.Elections
+        .Where(e => e.Id == id && (e.Status == "Draft" || e.Status == "Open")
+            && !db.Ballots.Any(b => b.ElectionId == e.Id));
+
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> GenerateInvitation()
     {
@@ -68,7 +74,8 @@ public class AdminController(VotingDbContext db) : Controller
 
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateElection(string? name, DateTime startsAtUtc, DateTime endsAtUtc,
-        bool includeStandardPositions = true, DateTime? startsAtManila = null, DateTime? endsAtManila = null)
+        bool includeStandardPositions = true, DateTime? startsAtManila = null, DateTime? endsAtManila = null,
+        string? requiredGroup = null)
     {
         name = name?.Trim();
         if (startsAtManila.HasValue || endsAtManila.HasValue)
@@ -83,7 +90,14 @@ public class AdminController(VotingDbContext db) : Controller
             return RedirectToAction(nameof(Elections));
         }
 
-        var election = new Election { Name = name, StartsAtUtc = startsAtUtc, EndsAtUtc = endsAtUtc };
+        requiredGroup = CleanVotingGroup(requiredGroup);
+        if (requiredGroup is { Length: > 100 })
+        {
+            TempData["Error"] = "Use a voting group name of 100 characters or fewer.";
+            return RedirectToAction(nameof(Elections));
+        }
+
+        var election = new Election { Name = name, StartsAtUtc = startsAtUtc, EndsAtUtc = endsAtUtc, RequiredGroup = requiredGroup };
         if (includeStandardPositions)
             election.Positions.AddRange(Election.StandardPositions.Select(name => new Position { Name = name }));
         db.Elections.Add(election);
@@ -106,9 +120,7 @@ public class AdminController(VotingDbContext db) : Controller
         try
         {
             await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
-            var changed = await db.Elections
-                .Where(e => e.Id == id && (e.Status == "Draft" || e.Status == "Open")
-                    && !db.Ballots.Any(b => b.ElectionId == e.Id))
+            var changed = await BeforeFirstBallot(id)
                 .ExecuteUpdateAsync(setters => setters.SetProperty(e => e.StartsAtUtc, startsAtUtc)
                     .SetProperty(e => e.EndsAtUtc, endsAtUtc));
             await transaction.CommitAsync();
@@ -125,6 +137,51 @@ public class AdminController(VotingDbContext db) : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> AssignVotingGroup(int id, string? votingGroup)
+    {
+        if (!await IsCurrentAdmin()) return Forbid();
+        votingGroup = CleanVotingGroup(votingGroup);
+        if (!ModelState.IsValid || votingGroup is { Length: > 100 })
+            TempData["Error"] = "Use a voting group name of 100 characters or fewer.";
+        else
+        {
+            var changed = await db.UserAccounts.Where(u => u.Id == id && u.Role == "Student")
+                .ExecuteUpdateAsync(updates => updates.SetProperty(u => u.VotingGroup, votingGroup));
+            TempData[changed == 1 ? "Success" : "Error"] = changed == 1 ? "Student group saved." : "Choose a registered student.";
+        }
+        return RedirectToAction(nameof(Users));
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetElectionGroup(int id, string? requiredGroup)
+    {
+        if (!await IsCurrentAdmin()) return Forbid();
+        requiredGroup = CleanVotingGroup(requiredGroup);
+        if (!ModelState.IsValid || requiredGroup is { Length: > 100 })
+        {
+            TempData["Error"] = "Use a voting group name of 100 characters or fewer.";
+            return RedirectToAction(nameof(Elections), new { id });
+        }
+
+        try
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+            var changed = await BeforeFirstBallot(id)
+                .ExecuteUpdateAsync(updates => updates.SetProperty(e => e.RequiredGroup, requiredGroup));
+            await transaction.CommitAsync();
+            TempData[changed == 1 ? "Success" : "Error"] = changed == 1
+                ? "Voter access saved."
+                : "You can edit voter access until the first ballot is submitted or the election closes.";
+        }
+        catch (SqlException ex) when (ex.Number == 1205)
+        {
+            TempData["Error"] = "Another request was processed at the same time. Review voter access before retrying.";
+        }
+
+        return RedirectToAction(nameof(Elections), new { id });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> ChangeStatus(int id, string? status)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
@@ -132,7 +189,7 @@ public class AdminController(VotingDbContext db) : Controller
         if (election == null || !((election.Status == "Draft" && status == "Open") || (election.Status == "Open" && status == "Closed")))
             TempData["Error"] = "Only draft elections can be opened, and only open elections can be closed.";
         else if (status == "Open" && (election.EndsAtUtc <= DateTime.UtcNow || !election.HasCompleteBallot()))
-            TempData["Error"] = "An election needs a future end time and at least one candidate for each position before it can open.";
+            TempData["Error"] = "An election needs a future end time, at least one position, and enough candidates to meet each position's minimum before it can open.";
         else
         {
             election.Status = status!;
@@ -144,20 +201,29 @@ public class AdminController(VotingDbContext db) : Controller
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> AddPosition(int electionId, string? name, bool addStandard = false)
+    public async Task<IActionResult> AddPosition(int electionId, string? name, bool addStandard = false,
+        int minSelections = 1, int? maxSelections = null)
     {
         name = name?.Trim() ?? "";
+        var maximum = maxSelections ?? minSelections;
         await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         var election = await db.Elections.Include(e => e.Positions).SingleOrDefaultAsync(e => e.Id == electionId);
         if (!ModelState.IsValid || election?.Status != "Draft")
             TempData["Error"] = "Positions can only be added to a draft election.";
         else if (!addStandard && (name.Length == 0 || name.Length > 100))
             TempData["Error"] = "Enter a position name between 1 and 100 characters.";
+        else if (!addStandard && (minSelections < 1 || maximum < minSelections))
+            TempData["Error"] = "The minimum must be at least 1 and the maximum must be at least the minimum.";
         else
         {
             var names = addStandard ? Election.StandardPositions : [name];
             var additions = names.Except(election.Positions.Select(p => p.Name), StringComparer.OrdinalIgnoreCase)
-                .Select(n => new Position { Name = n }).ToList();
+                .Select(n => new Position
+                {
+                    Name = n,
+                    MinSelections = addStandard ? 1 : minSelections,
+                    MaxSelections = addStandard ? 1 : maximum
+                }).ToList();
             if (additions.Count == 0)
                 TempData["Error"] = addStandard ? "The standard positions already exist in this election." : "That position already exists in this election.";
             else

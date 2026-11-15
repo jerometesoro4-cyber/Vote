@@ -1,0 +1,18 @@
+@model DashboardViewModel
+@{
+    var required = Model.SelectedElection?.RequiredGroup;
+    var groups = Model.Users.Where(u => u.Role == "Student").Select(u => u.VotingGroup).Append(required)
+        .OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(group => group);
+}
+
+<div class="field">
+    <label for="required-group">Eligible group</label>
+    <select id="required-group" name="requiredGroup">
+        <option value="">All students</option>
+        @foreach (var group in groups)
+        {
+            <option value="@group" selected="@string.Equals(group, required, StringComparison.OrdinalIgnoreCase)">@group</option>
+        }
+    </select>
+    <small><a asp-action="Users">Assign groups in Voters</a></small>
+</div>

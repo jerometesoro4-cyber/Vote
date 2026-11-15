@@ -3,6 +3,7 @@
     ViewData["Title"] = "Elections";
     var election = Model.SelectedElection;
     var now = DateTime.UtcNow;
+    var canEdit = election != null && (election.Status is "Draft" or "Open") && !Model.Ballots.Any(b => b.ElectionId == election.Id);
 }
 
 <div class="page-heading">
@@ -34,6 +35,7 @@
                 <input id="name" name="name" required maxlength="150" placeholder="e.g. Room 101 Election"/>
             </div>
             <partial name="_ScheduleFields" model="Model"/>
+            <div class="form-actions"><partial name="_VotingGroupField" model="Model"/></div>
             <p>
                 <label><input type="checkbox" name="includeStandardPositions" value="true" checked aria-describedby="standard-positions"/> Add standard positions</label>
                 <input type="hidden" name="includeStandardPositions" value="false"/>
@@ -60,7 +62,7 @@ else
         }
         else if (election.Status == "Draft" && !election.HasCompleteBallot())
         {
-            <p>Add at least one position and one candidate per position to open voting.</p>
+            <p>Add at least one position and enough candidates to meet each position's minimum.</p>
         }
         else if (election.Status is "Draft" or "Open")
         {
@@ -71,7 +73,7 @@ else
             </form>
         }
     </section>
-    @if ((election.Status is "Draft" or "Open") && !Model.Ballots.Any(b => b.ElectionId == election.Id))
+    @if (canEdit)
     {
         <section class="panel" id="edit-schedule">
             <h2>Edit schedule</h2>
@@ -82,4 +84,19 @@ else
             </form>
         </section>
     }
+    <section class="panel">
+        <h2>Voter access</h2>
+        @if (canEdit)
+        {
+            <form asp-action="SetElectionGroup" method="post">
+                <input type="hidden" name="id" value="@election.Id"/>
+                <partial name="_VotingGroupField" model="Model"/>
+                <button class="form-actions" type="submit">Save voter access</button>
+            </form>
+        }
+        else
+        {
+            <p>@(election.RequiredGroup == null ? "All students" : $"{election.RequiredGroup} only")</p>
+        }
+    </section>
 }
