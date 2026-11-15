@@ -1,56 +1,28 @@
-@{
-    ViewData["Title"] = "Manage Users";
-}
-
-<div class="page-heading">
-    <h1>Manage Users</h1>
-    <p>Manage student voters and election staff.</p>
+@model voting.Models.DashboardViewModel
+@{ViewData["Title"]="Voters";}<div class="page-heading">
+<div>
+<h1>Registered voters</h1>
+<p>Student accounts registered in this workspace.</p>
 </div>
-
-<div class="content-card">
-
-    <h2>Add Student Voter</h2>
-
-    <form>
-        <label>Student ID</label>
-        <input type="text" placeholder="Enter Student ID" />
-
-        <br /><br />
-
-        <label>Full Name</label>
-        <input type="text" placeholder="Enter Full Name" />
-
-        <br /><br />
-
-        <label>School Gmail</label>
-        <input type="email" placeholder="Enter School Gmail" />
-
-        <br /><br />
-
-        <button type="button" class="get-started">
-            Add Student
-        </button>
-    </form>
-
-    <hr />
-
-    <h2>Voter List / Records</h2>
-
-    <table>
-        <thead>
-            <tr>
-                <th>Student ID</th>
-                <th>Full Name</th>
-                <th>Email</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-
-        <tbody>
-            <tr>
-                <td colspan="4">No student records available.</td>
-            </tr>
-        </tbody>
-    </table>
-
 </div>
+<section class="panel">
+<h2>@Model.StudentCount student accounts</h2>
+<div class="table-wrapper" role="region" aria-label="Registered students" tabindex="0">
+<table>
+<thead>
+<tr>
+<th scope="col">NAME</th>
+<th scope="col">EMAIL</th>
+<th scope="col">YEAR LEVEL</th>
+<th scope="col">REGISTERED · UTC</th>
+</tr>
+</thead>
+<tbody>@foreach(var u in Model.Users.Where(u=>u.Role=="Student")){<tr>
+<th scope="row">@u.FullName</th>
+<td>@u.Email</td>
+<td>@u.YearLevel</td>
+<td>@u.CreatedAtUtc.ToString("MMM d, yyyy")</td>
+</tr>}</tbody>
+</table>
+</div>
+</section>

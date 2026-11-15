@@ -1,20 +1,10 @@
-@{
-    ViewData["Title"] = "Election Schedule";
-}
-
-<div class="page-heading">
-    <h1>Election Schedule & Timeline</h1>
-    <p>Important dates for the student election.</p>
+@model voting.Models.DashboardViewModel
+@{ViewData["Title"]="Schedule";}<div class="page-heading">
+<div>
+<h1>Election schedule</h1>
+<p>Official voting periods, shown in UTC.</p>
 </div>
-
-<div class="content-card">
-
-    <h2>Student Council Election 2026</h2>
-
-    <p><strong>Start Date:</strong> October 20, 2026</p>
-
-    <p><strong>End Date:</strong> October 24, 2026</p>
-
-    <p><strong>Election Status:</strong> Scheduled</p>
-
 </div>
+<section class="panel">
+<partial name="_ElectionTable" model="Model"/>
+</section>

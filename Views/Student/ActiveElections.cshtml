@@ -1,26 +1,12 @@
-@{
-    ViewData["Title"] = "Active Elections";
-}
-
-<div class="page-heading">
-    <h1>Active Elections</h1>
-    <p>View elections currently available for voting.</p>
+@model voting.Models.DashboardViewModel
+@{ViewData["Title"]="Elections";}<div class="page-heading">
+<div>
+<h1>Elections</h1>
+<p>Voting availability depends on the election status and scheduled dates.</p>
 </div>
-
-<div class="content-card">
-
-    <h2>Student Council Election 2026</h2>
-
-    <p><strong>Status:</strong> Active</p>
-
-    <p><strong>Election Period:</strong>
-        October 20 to 24, 2026
-    </p>
-
-    <p><strong>Eligible Voters:</strong> 320</p>
-
-    <a asp-action="Vote" class="get-started">
-        Proceed to Voting
-    </a>
-
 </div>
+<section class="panel">
+<partial name="_ElectionTable" model="Model"/>@foreach(var e in Model.Elections.Where(e=>e.Status=="Open" && e.StartsAtUtc<=DateTime.UtcNow && e.EndsAtUtc>DateTime.UtcNow)){<div class="activity">
+<p>
+<strong>@e.Name</strong>
+</p>@if(Model.Ballots.Any(b=>b.ElectionId==e.Id)){<span class="badge">Ballot submitted</span>}else{<a class="button" asp-action="Vote" asp-route-id="@e.Id">Open ballot →</a>}</div>}</section>

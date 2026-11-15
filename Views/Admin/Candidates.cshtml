@@ -1,50 +1,36 @@
-@{
-    ViewData["Title"] = "Manage Candidates";
-}
-
-<div class="page-heading">
-    <h1>Manage Candidates</h1>
-    <p>Add and edit candidate information.</p>
+@model voting.Models.DashboardViewModel
+@{ViewData["Title"]="Candidates";}<div class="page-heading">
+<div>
+<h1>Candidates</h1>
+<p>Build the ballot before opening an election.</p>
 </div>
-
-<div class="content-card">
-
-    <h2>Add Candidate</h2>
-
-    <form>
-        <label>Candidate Name</label>
-        <input type="text"
-               placeholder="Enter candidate name" />
-
-        <br /><br />
-
-        <label>Position</label>
-        <select>
-            <option>Select Position</option>
-            <option>President</option>
-            <option>Vice President</option>
-            <option>Secretary</option>
-            <option>Treasurer</option>
-            <option>Auditor</option>
-            <option>Public Information Officer</option>
-        </select>
-
-        <br /><br />
-
-        <label>Candidate Platform</label>
-        <textarea placeholder="Enter candidate platform"></textarea>
-
-        <br /><br />
-
-        <button type="button" class="get-started">
-            Add Candidate
-        </button>
-    </form>
-
-    <hr />
-
-    <h2>Candidate List</h2>
-
-    <p>No candidates added yet.</p>
-
 </div>
+<section class="panel">
+<h2>Add candidate</h2>
+<form asp-action="AddCandidate" method="post">
+<div class="form-grid">
+<div class="field">
+<label for="position">Position · draft election</label>
+<select name="positionId" id="position" required>
+<option value="">Choose position</option>@foreach(var p in Model.Positions.Where(p=>p.Election.Status=="Draft")){<option value="@p.Id">@p.Election.Name · @p.Name</option>}</select>
+</div>
+<div class="field">
+<label for="name">Full name</label>
+<input id="name" name="name" maxlength="100" required/>
+</div>
+<div class="field">
+<label for="party">Party / affiliation</label>
+<input id="party" name="party" maxlength="100"/>
+</div>
+<div class="field">
+<label for="platform">Platform</label>
+<textarea id="platform" name="platform" maxlength="2000">
+</textarea>
+</div>
+</div>
+<div class="form-actions">
+<button type="submit">Add candidate</button>
+</div>
+</form>
+</section>
+<partial name="_CandidateCards" model="Model"/>

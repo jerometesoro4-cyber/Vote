@@ -1,0 +1,11 @@
+.vs/
+bin/
+obj/
+*.user
+
+.agent-logs/
+
+.agents/
+skills-lock.json
+.taste-skill/
+__pycache__/

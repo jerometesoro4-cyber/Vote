@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
+using Microsoft.Data.SqlClient;
 using voting.Data;
 using voting.Models;
 
@@ -37,14 +37,7 @@ public class AccountController : Controller
 
     [AllowAnonymous]
     [HttpGet]
-    public IActionResult ChooseRole()
-    {
-        return View();
-    }
-
-    [AllowAnonymous]
-    [HttpGet]
-    public IActionResult AdminLogin(string? returnUrl = null)
+    public IActionResult Login(string? returnUrl = null)
     {
         ViewBag.ReturnUrl = returnUrl;
         return View();
@@ -53,110 +46,20 @@ public class AccountController : Controller
     [AllowAnonymous]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> AdminLogin(
-        string username,
-        string password,
-        string? returnUrl = null)
-    {
-        if (!string.IsNullOrWhiteSpace(username) &&
-            !string.IsNullOrEmpty(password) &&
-            password.Length <= 256)
-        {
-            try
-            {
-                var normalizedEmail = NormalizeEmail(username);
-                var account = await _dbContext.UserAccounts.SingleOrDefaultAsync(
-                    user => user.NormalizedEmail == normalizedEmail && user.Role == "Admin");
-
-                if (account is not null)
-                {
-                    var result = _passwordHasher.VerifyHashedPassword(
-                        account,
-                        account.PasswordHash,
-                        password);
-
-                    if (result != PasswordVerificationResult.Failed)
-                    {
-                        if (result == PasswordVerificationResult.SuccessRehashNeeded)
-                        {
-                            account.PasswordHash = _passwordHasher.HashPassword(account, password);
-                            await _dbContext.SaveChangesAsync();
-                        }
-
-                        await SignInAsync(account);
-                        return RedirectAfterSignIn(returnUrl, "Admin", "Index");
-                    }
-                }
-            }
-            catch (Exception exception) when (IsDatabaseException(exception))
-            {
-                // Database is down: log it and fall through to the configured admin account.
-                _logger.LogError(exception, "Admin login could not query the user accounts table.");
-            }
-
-            var configuredUsername = _configuration["AdminAccount:Username"];
-            var configuredPassword = _configuration["AdminAccount:Password"];
-
-            if (!string.IsNullOrEmpty(configuredUsername) &&
-                !string.IsNullOrEmpty(configuredPassword) &&
-                username == configuredUsername &&
-                password == configuredPassword)
-            {
-                var claims = new List<Claim>
-                {
-                    new(ClaimTypes.Name, username),
-                    new(ClaimTypes.Role, "Admin")
-                };
-                var principal = new ClaimsPrincipal(
-                    new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme));
-
-                await HttpContext.SignInAsync(
-                    CookieAuthenticationDefaults.AuthenticationScheme,
-                    principal);
-
-                return RedirectAfterSignIn(returnUrl, "Admin", "Index");
-            }
-        }
-
-        ViewBag.Error = "Invalid administrator email or password.";
-        ViewBag.ReturnUrl = returnUrl;
-        return View();
-    }
-
-    [AllowAnonymous]
-    [HttpGet]
-    public IActionResult StudentLogin(string? returnUrl = null)
+    public async Task<IActionResult> Login(string? email, string? password, string? returnUrl = null)
     {
         ViewBag.ReturnUrl = returnUrl;
-        return View();
-    }
-
-    [AllowAnonymous]
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> StudentLogin(
-        string email,
-        string password,
-        string? returnUrl = null)
-    {
-        if (!string.IsNullOrWhiteSpace(email) &&
-            email.Length <= 254 &&
-            !string.IsNullOrEmpty(password) &&
-            password.Length <= 256)
+        ViewBag.Email = email;
+        if (!string.IsNullOrWhiteSpace(email) && email.Length <= 254 &&
+            !string.IsNullOrEmpty(password) && password.Length <= 256)
         {
             try
             {
                 var normalizedEmail = NormalizeEmail(email);
-                var account = await _dbContext.UserAccounts.SingleOrDefaultAsync(
-                    user => user.NormalizedEmail == normalizedEmail && user.Role == "Student");
-
-                if (account is not null)
+                var account = await _dbContext.UserAccounts.SingleOrDefaultAsync(user => user.NormalizedEmail == normalizedEmail);
+                if (account is not null && (account.Role == "Admin" || account.Role == "Student"))
                 {
-                    var result = _passwordHasher.VerifyHashedPassword(
-                        account,
-                        account.PasswordHash,
-                        password);
-
+                    var result = _passwordHasher.VerifyHashedPassword(account, account.PasswordHash, password);
                     if (result != PasswordVerificationResult.Failed)
                     {
                         if (result == PasswordVerificationResult.SuccessRehashNeeded)
@@ -164,27 +67,75 @@ public class AccountController : Controller
                             account.PasswordHash = _passwordHasher.HashPassword(account, password);
                             await _dbContext.SaveChangesAsync();
                         }
-
                         await SignInAsync(account);
-                        return RedirectAfterSignIn(returnUrl, "Student", "Index");
+                        return RedirectAfterSignIn(returnUrl, account.Role, "Index");
                     }
                 }
             }
             catch (Exception exception) when (IsDatabaseException(exception))
             {
-                _logger.LogError(exception, "Student login could not query the user accounts table.");
+                _logger.LogError(exception, "Login could not query the user accounts table.");
                 ViewBag.Error = DbUnavailableMessage;
-                ViewBag.ReturnUrl = returnUrl;
-                return View();
+                return View("Login");
             }
         }
-
-        ViewBag.Error = "Invalid student email or password.";
-        ViewBag.ReturnUrl = returnUrl;
-        return View();
+        ViewBag.Error = "Invalid email or password.";
+        return View("Login");
     }
 
-    
+    [AllowAnonymous, HttpGet]
+    public IActionResult ChooseRole(string? returnUrl = null) => RedirectToAction(nameof(Login), new { returnUrl });
+
+    [AllowAnonymous, HttpGet]
+    public IActionResult AdminLogin(string? returnUrl = null) => RedirectToAction(nameof(Login), new { returnUrl });
+
+    [AllowAnonymous, HttpPost, ValidateAntiForgeryToken]
+    public Task<IActionResult> AdminLogin(string? username, string? password, string? returnUrl = null) => Login(username, password, returnUrl);
+
+    [AllowAnonymous, HttpGet]
+    public IActionResult StudentLogin(string? returnUrl = null) => RedirectToAction(nameof(Login), new { returnUrl });
+
+    [AllowAnonymous, HttpPost, ValidateAntiForgeryToken]
+    public Task<IActionResult> StudentLogin(string? email, string? password, string? returnUrl = null) => Login(email, password, returnUrl);
+
+    [AllowAnonymous, HttpGet]
+    public IActionResult Register(string? role = null) => View(new RegistrationViewModel
+    {
+        Role = role == "Admin" ? "Admin" : "Student"
+    });
+
+    [AllowAnonymous, HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Register(RegistrationViewModel model)
+    {
+        if (model.Role != "Student" && model.Role != "Admin")
+            ModelState.AddModelError(nameof(model.Role), "Choose a valid account type.");
+        if (model.Role == "Admin")
+        {
+            var expectedCode = _configuration["AdminAccount:InvitationCode"];
+            if (string.IsNullOrWhiteSpace(expectedCode))
+                ModelState.AddModelError(string.Empty, "Administrator registration is not configured. Contact the system owner.");
+            else if (!InvitationCodeMatches(model.InvitationCode ?? string.Empty, expectedCode))
+                ModelState.AddModelError(nameof(model.InvitationCode), "The invitation code is invalid.");
+        }
+        if (!ModelState.IsValid) return View("Register", model);
+
+        var account = CreateAccount(model.FullName, model.Email, model.Password, model.Role,
+            model.Role == "Student" ? model.YearLevel : null);
+        var result = await SaveAccountAsync(account);
+        if (result == SaveResult.Duplicate)
+            ModelState.AddModelError(nameof(model.Email), "An account with this email already exists.");
+        else if (result == SaveResult.Error)
+            ModelState.AddModelError(string.Empty, DbUnavailableMessage);
+        if (!ModelState.IsValid) return View("Register", model);
+
+        await SignInAsync(account);
+        return RedirectToAction("Index", account.Role);
+    }
+
+    [AllowAnonymous]
+    [HttpGet]
+    public IActionResult StudentSignup() => RedirectToAction(nameof(Register), new { role = "Student" });
+
    [AllowAnonymous]
 [HttpPost]
 [ValidateAntiForgeryToken]
@@ -222,7 +173,7 @@ public async Task<IActionResult> StudentSignup(StudentRegistrationViewModel mode
     [HttpGet]
     public IActionResult AdminSignup()
     {
-        return View(new AdminRegistrationViewModel());
+        return RedirectToAction(nameof(Register), new { role = "Admin" });
     }
 
     [AllowAnonymous]
@@ -277,7 +228,7 @@ public async Task<IActionResult> StudentSignup(StudentRegistrationViewModel mode
     public async Task<IActionResult> Logout()
     {
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-        return RedirectToAction(nameof(ChooseRole));
+        return RedirectToAction(nameof(Login));
     }
 
     private UserAccount CreateAccount(
@@ -317,10 +268,7 @@ public async Task<IActionResult> StudentSignup(StudentRegistrationViewModel mode
             return SaveResult.Success;
         }
         catch (DbUpdateException exception)
-            when (exception.InnerException is PostgresException
-            {
-                SqlState: PostgresErrorCodes.UniqueViolation
-            })
+            when (exception.InnerException is SqlException { Number: 2601 or 2627 })
         {
             _dbContext.Entry(account).State = EntityState.Detached;
             return SaveResult.Duplicate;
@@ -335,7 +283,7 @@ public async Task<IActionResult> StudentSignup(StudentRegistrationViewModel mode
 
     private static bool IsDatabaseException(Exception exception)
     {
-        return exception is NpgsqlException
+        return exception is SqlException
             or DbUpdateException
             or InvalidOperationException
             or TimeoutException

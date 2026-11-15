@@ -1,13 +1,17 @@
+using Microsoft.AspNetCore.Authorization;
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using voting.Models;
 
 namespace voting.Controllers;
 
+[AllowAnonymous]
 public class HomeController : Controller
 {
     public IActionResult Index()
     {
+        if (User.IsInRole("Admin")) return RedirectToAction("Index", "Admin");
+        if (User.IsInRole("Student")) return RedirectToAction("Index", "Student");
         return View();
     }
 

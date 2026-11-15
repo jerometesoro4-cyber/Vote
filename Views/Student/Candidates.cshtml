@@ -1,27 +1,8 @@
-@{
-    ViewData["Title"] = "View Candidates";
-}
-
-<div class="page-heading">
-    <h1>View Candidates</h1>
-    <p>Know your candidates and their platforms.</p>
+@model voting.Models.DashboardViewModel
+@{ViewData["Title"]="Candidates";}<div class="page-heading">
+<div>
+<h1>Meet the candidates</h1>
+<p>Get to know the people and platforms on your ballot.</p>
 </div>
-
-<div class="content-card">
-
-    <h2>Candidate Information</h2>
-
-    <p>Candidate profiles will appear here.</p>
-
-    <hr />
-
-    <h3>President</h3>
-    <p>No candidates available yet.</p>
-
-    <h3>Vice President</h3>
-    <p>No candidates available yet.</p>
-
-    <h3>Secretary</h3>
-    <p>No candidates available yet.</p>
-
 </div>
+<partial name="_CandidateCards" model="Model"/>

@@ -1,53 +1,15 @@
-@{
-    ViewData["Title"] = "Voting Monitoring";
-}
-
-<div class="page-heading">
-    <h1>Voting Monitoring</h1>
-    <p>Monitor student voting activity.</p>
+@model voting.Models.DashboardViewModel
+@{ViewData["Title"]="Monitoring";}<div class="page-heading">
+<div>
+<h1>Voting monitoring</h1>
+<p>Ballot counts by election. Refresh this page for the latest totals.</p>
 </div>
-
-<div class="dashboard-container">
-
-    <div class="info-card">
-        <h3>Eligible Voters</h3>
-        <h1>320</h1>
-    </div>
-
-    <div class="info-card">
-        <h3>Votes Submitted</h3>
-        <h1>0</h1>
-    </div>
-
-    <div class="info-card">
-        <h3>Remaining Voters</h3>
-        <h1>320</h1>
-    </div>
-
 </div>
-
-<div class="content-card">
-
-    <h2>Voter Turnout Report</h2>
-
-    <p>Voting activity will appear here.</p>
-
-    <h2>Voter Records</h2>
-
-    <table>
-        <thead>
-            <tr>
-                <th>Student ID</th>
-                <th>Student Name</th>
-                <th>Voting Status</th>
-            </tr>
-        </thead>
-
-        <tbody>
-            <tr>
-                <td colspan="3">No voting records available.</td>
-            </tr>
-        </tbody>
-    </table>
-
-</div>
+<section class="panel">
+<h2>@Model.BallotCount ballots submitted</h2>@foreach(var e in Model.Elections){<div class="activity">
+<span class="activity-icon">✓</span>
+<p>
+<strong>@e.Name</strong>
+<small>@Model.Ballots.Count(b=>b.ElectionId==e.Id) submitted ballots · @e.Status</small>
+</p>
+</div>}</section>

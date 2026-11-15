@@ -1,23 +1,30 @@
-@{
-    ViewData["Title"] = "Election Results";
-}
-
-<div class="page-heading">
-    <h1>Election Results</h1>
-    <p>View the official election results.</p>
+@model voting.Models.DashboardViewModel
+@{ViewData["Title"]="Results";}<div class="page-heading">
+<div>
+<h1>Election results</h1>
+<p>@(User.IsInRole("Admin") ? "Live tallies for your elections." : "Published tallies from closed elections.")</p>
 </div>
-
-<div class="content-card">
-
-    <h2>Student Council Election 2026</h2>
-
-    <p>
-        The official election results will be
-        available once published by the Principal.
-    </p>
-
-    <h3>Election Status</h3>
-
-    <p>Results Not Yet Published</p>
-
 </div>
+<section class="panel">
+<h2>Candidate tallies</h2>@if(Model.Results.Count==0){<div class="empty">
+<strong>No results available</strong>Results will appear here when available.</div>}<div class="table-wrapper" role="region" aria-label="Election results" tabindex="0">
+<table>
+<thead>
+<tr>
+<th scope="col">CANDIDATE</th>
+<th scope="col">POSITION</th>
+<th scope="col">ELECTION</th>
+<th scope="col">VOTES</th>
+</tr>
+</thead>
+<tbody>@foreach(var r in Model.Results.OrderBy(r=>r.ElectionId).ThenBy(r=>r.PositionName).ThenByDescending(r=>r.Votes)){<tr>
+<th scope="row">@r.CandidateName</th>
+<td>@r.PositionName</td>
+<td>@r.ElectionName</td>
+<td>
+<strong>@r.Votes</strong>
+</td>
+</tr>}</tbody>
+</table>
+</div>
+</section>

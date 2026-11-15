@@ -1,58 +1,44 @@
-@{
-    ViewData["Title"] = "Manage Elections";
-}
-
-<div class="page-heading">
-    <h1>Manage Elections</h1>
-    <p>Create and control student elections.</p>
+@model voting.Models.DashboardViewModel
+@{ViewData["Title"]="Elections";}<div class="page-heading">
+<div>
+<p class="eyebrow">ELECTION MANAGEMENT</p>
+<h1>Elections</h1>
+<p>Create a voting period and manage its availability.</p>
 </div>
-
-<div class="content-card">
-
-    <h2>Create New Election</h2>
-
-    <form>
-        <label>Election Name</label>
-        <input type="text"
-               placeholder="Enter election name" />
-
-        <br /><br />
-
-        <label>Start Date</label>
-        <input type="datetime-local" />
-
-        <br /><br />
-
-        <label>End Date</label>
-        <input type="datetime-local" />
-
-        <br /><br />
-
-        <label>Election Status</label>
-        <select>
-            <option>Not Yet Started</option>
-            <option>Active</option>
-            <option>Closed</option>
-        </select>
-
-        <br /><br />
-
-        <button type="button" class="get-started">
-            Create Election
-        </button>
-    </form>
-
-    <hr />
-
-    <h2>Election QR Code</h2>
-
-    <p>
-        Generate and display the election QR code
-        after creating and activating an election.
-    </p>
-
-    <button type="button" class="get-started">
-        Generate QR Code
-    </button>
-
 </div>
+<section class="panel">
+<h2>Create election</h2>
+<form asp-action="CreateElection" method="post">
+<div class="form-grid">
+<div class="field">
+<label for="name">Election name</label>
+<input id="name" name="name" required maxlength="150" placeholder="e.g. Student Council Election"/>
+</div>
+<div>
+</div>
+<div class="field">
+<label for="starts">Voting starts (UTC)</label>
+<input id="starts" type="datetime-local" name="startsAtUtc" required/>
+</div>
+<div class="field">
+<label for="ends">Voting ends (UTC)</label>
+<input id="ends" type="datetime-local" name="endsAtUtc" required/>
+</div>
+</div>
+<div class="form-actions">
+<button type="submit">Create draft election</button>
+</div>
+</form>
+</section>
+<section class="panel">
+<h2>Your elections</h2>
+<partial name="_ElectionTable" model="Model"/>@foreach(var e in Model.Elections){<form class="inline-form" asp-action="ChangeStatus" method="post" style="margin-top:20px">
+<input type="hidden" name="id" value="@e.Id"/>
+<label for="status-@e.Id">@e.Name</label>
+<select id="status-@e.Id" name="status">
+<option value="Draft" selected="@(e.Status == "Draft")">Draft</option>
+<option value="Open" selected="@(e.Status == "Open")">Open</option>
+<option value="Closed" selected="@(e.Status == "Closed")">Closed</option>
+</select>
+<button type="submit">Update status</button>
+</form>}</section>

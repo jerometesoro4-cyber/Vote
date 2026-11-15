@@ -4,7 +4,7 @@
 }
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -47,17 +47,17 @@
                    name="returnUrl"
                    value="@ViewBag.ReturnUrl" />
 
-            <label>Admin email or configured username</label>
+            <label for="username">Administrator email</label>
 
             <input type="text"
-                   name="username"
-                   placeholder="Enter administrator username"
+                   id="username" name="username" autocomplete="username"
+                   placeholder="Enter administrator email"
                    required />
 
-            <label>Password</label>
+            <label for="password">Password</label>
 
             <input type="password"
-                   name="password"
+                   id="password" name="password" autocomplete="current-password"
                    placeholder="Enter your password"
                    required />
 

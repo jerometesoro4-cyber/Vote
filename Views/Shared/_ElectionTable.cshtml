@@ -1,0 +1,21 @@
+@model voting.Models.DashboardViewModel
+@if(Model.Elections.Count == 0){<div class="empty">
+<strong>No elections created</strong>Create your first election to get started.</div>}else{<div class="table-wrapper" role="region" aria-label="Elections" tabindex="0">
+<table>
+<thead>
+<tr>
+<th scope="col">ELECTION</th>
+<th scope="col">VOTING PERIOD · UTC</th>
+<th scope="col">STATUS</th>
+</tr>
+</thead>
+<tbody>@foreach(var e in Model.Elections.OrderByDescending(e=>e.Id)){<tr>
+<th scope="row">@e.Name</th>
+<td>@e.StartsAtUtc.ToString("MMM d, HH:mm")<small>to @e.EndsAtUtc.ToString("MMM d, yyyy HH:mm")</small>
+</td>
+<td>
+<span class="badge @e.Status.ToLowerInvariant()">@e.Status</span>
+</td>
+</tr>}</tbody>
+</table>
+</div>}

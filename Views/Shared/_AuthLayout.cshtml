@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] | ACMCL Voting</title>
+    <link rel="stylesheet" href="~/css/account.css" asp-append-version="true" />
+</head>
+<body>
+    <a class="skip-link" href="#main-content">Skip to sign in</a>
+    <div class="auth-shell">
+        <aside class="auth-brand" aria-label="ACMCL voting portal">
+            <a asp-controller="Home" asp-action="Index" class="brand-name"><img src="~/images/logo.webp" alt="" /> <span>ACMCL<br /><strong>Voting Portal</strong></span></a>
+            <div class="brand-copy"><p class="eyebrow">STUDENT ELECTIONS</p><h2>Your voice matters.</h2><p>Sign in to take part in your school's elections and view the results.</p></div>
+            <p class="brand-footer">ACMCL College Inc.</p>
+        </aside>
+        <main class="auth-main" id="main-content">
+            <div class="auth-content">@RenderBody()</div>
+        </main>
+    </div>
+</body>
+</html>

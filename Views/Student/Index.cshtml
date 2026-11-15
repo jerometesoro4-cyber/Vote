@@ -1,51 +1,48 @@
-@{
-    ViewData["Title"] = "My Dashboard";
-}
-
-<div class="page-heading">
-    <h1>My Dashboard</h1>
-    <p>Welcome to your student voter portal.</p>
+@model voting.Models.DashboardViewModel
+@{ViewData["Title"]="Overview";}<div class="page-heading">
+<div>
+<p class="eyebrow">YOUR VOTING WORKSPACE</p>
+<h1>Welcome, @User.Identity?.Name</h1>
+<p>Review your elections, meet the candidates, and make your voice count.</p>
 </div>
-
-<div class="dashboard-container">
-
-    <div class="info-card">
-        <h3>Available Elections</h3>
-        <h1>1</h1>
-    </div>
-
-    <div class="info-card">
-        <h3>Voting Status</h3>
-        <h1>Not Voted</h1>
-    </div>
-
-    <div class="info-card">
-        <h3>Account Status</h3>
-        <h1>Verified</h1>
-    </div>
-
+<a class="button" asp-action="ActiveElections">View elections →</a>
 </div>
-
-<div class="content-card">
-    <h2>Student Voter Menu</h2>
-
-    <a asp-action="ActiveElections" class="get-started">
-        View Active Elections
-    </a>
-
-    <a asp-action="Vote" class="get-started">
-        Vote Now
-    </a>
-
-    <a asp-action="History" class="get-started">
-        My Voting History
-    </a>
-
-    <a asp-action="Candidates" class="get-started">
-        View Candidates
-    </a>
-
-    <a asp-action="Results" class="get-started">
-        Election Results
-    </a>
+<div class="stats-grid">
+<div class="stat">
+<span class="stat-label">Available elections</span>
+<strong>@Model.Elections.Count(e=>e.Status=="Open" && e.StartsAtUtc<=DateTime.UtcNow && e.EndsAtUtc>DateTime.UtcNow)</strong>
+<small>Within their voting period</small>
+</div>
+<div class="stat">
+<span class="stat-label">Your ballots</span>
+<strong>@Model.Ballots.Count</strong>
+<small>Successfully submitted</small>
+</div>
+<div class="stat">
+<span class="stat-label">Candidates</span>
+<strong>@Model.Candidates.Count</strong>
+<small>Explore their platforms</small>
+</div>
+<div class="stat">
+<span class="stat-label">Account role</span>
+<strong style="font-size:24px">Student</strong>
+<small>Signed in and ready to explore</small>
+</div>
+</div>
+<div class="dashboard-grid">
+<section class="panel">
+<div class="panel-head">
+<h2>Your elections</h2>
+<a asp-action="ActiveElections">View all →</a>
+</div>
+<partial name="_ElectionTable" model="Model"/>
+</section>
+<section class="panel">
+<h2>Your next step</h2>
+<p class="muted">Review the candidates before submitting your ballot. You can submit once per election.</p>
+<div class="quick-links">
+<a asp-action="Candidates">Meet candidates →</a>
+<a asp-action="History">My ballots →</a>
+</div>
+</section>
 </div>

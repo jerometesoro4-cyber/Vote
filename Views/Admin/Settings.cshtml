@@ -1,36 +1,14 @@
-@{
-    ViewData["Title"] = "System Settings";
-}
-
-<div class="page-heading">
-    <h1>System Settings</h1>
-    <p>Configure system preferences.</p>
+@{ViewData["Title"]="Account";}<div class="page-heading">
+<div>
+<h1>Account</h1>
+<p>Your administrator access.</p>
 </div>
-
-<div class="content-card">
-
-    <h2>General Settings</h2>
-
-    <label>System Name</label>
-    <input type="text"
-           value="ACMCL Automated Voting & Tally System" />
-
-    <br /><br />
-
-    <label>School Name</label>
-    <input type="text"
-           value="ACMCL College Inc." />
-
-    <br /><br />
-
-    <label>Administrator</label>
-    <input type="text"
-           value="Principal" />
-
-    <br /><br />
-
-    <button type="button" class="get-started">
-        Save Settings
-    </button>
-
 </div>
+<section class="panel">
+<h2>@User.Identity?.Name</h2>
+<p>Role: Administrator</p>
+<p>Email: @User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value</p>
+<form asp-controller="Account" asp-action="Logout" method="post">
+<button type="submit">Sign out</button>
+</form>
+</section>

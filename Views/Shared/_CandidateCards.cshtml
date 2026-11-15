@@ -1,0 +1,13 @@
+@model voting.Models.DashboardViewModel
+<section class="panel">
+<div class="panel-head">
+<h2>Candidate directory</h2>
+<span class="muted">@Model.Candidates.Count candidates</span>
+</div>@if(Model.Candidates.Count==0){<div class="empty">
+<strong>No candidates yet</strong>Candidates will appear after they are added to an election.</div>}<div class="candidate-grid">@foreach(var c in Model.Candidates){<article class="candidate-card">
+<span class="badge">@c.Position.Name</span>
+<h3>@c.Name</h3>
+<p>@(string.IsNullOrWhiteSpace(c.Party)?"Independent":c.Party) · @c.Position.Election.Name</p>
+<p>@c.Platform</p>
+</article>}</div>
+</section>
