@@ -77,10 +77,23 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 
-if (args.Contains("--migrate"))
+var migrateOnly = args.Contains("--migrate");
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
-    await scope.ServiceProvider.GetRequiredService<VotingDbContext>().Database.MigrateAsync();
+    var database = scope.ServiceProvider.GetRequiredService<VotingDbContext>().Database;
+    if (migrateOnly || app.Environment.IsDevelopment())
+    {
+        await database.MigrateAsync();
+    }
+    else if ((await database.GetPendingMigrationsAsync()).Any())
+    {
+        throw new InvalidOperationException(
+            "The configured VotingDb database needs a schema upgrade. Back it up and run dotnet run --no-launch-profile -- --migrate with the same connection settings before starting the portal.");
+    }
+}
+
+if (migrateOnly)
+{
     return;
 }
 

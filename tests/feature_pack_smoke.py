@@ -1,7 +1,7 @@
 """Comprehensive isolated integration & security checks for the Vote feature pack.
 Creates an isolated ACMCLVoting_AgyTest_* database starting from the prior 4-migration schema
-with synthetic legacy fixtures, runs --migrate to test the additive upgrade, starts a temporary
-app instance with an isolated pickup directory and candidate photo storage, runs all tests,
+with synthetic legacy fixtures, starts the Development app to test the automatic upgrade,
+uses an isolated pickup directory and candidate photo storage, runs all tests,
 and removes the temporary database, files, and process in finally.
 Never touches ACMCLVoting.
 """
@@ -255,15 +255,12 @@ try:
     print('1. Creating isolated DB with prior 4-migration schema + legacy fixture...')
     create_prior_schema_with_legacy_fixtures()
 
-    print('2. Running additive EF Core migration via --migrate...')
-    with (LOGDIR / 'feature-pack-tests.log').open('a', encoding='utf-8') as mf:
-        subprocess.run(APP + ['--migrate'], cwd=ROOT, env=BASE_ENV, check=True, stdout=mf, stderr=subprocess.STDOUT)
+    print('2. Starting the Development app against the old schema...')
+    proc, log_file = start_app()
 
     applied = sql('SELECT MigrationId FROM __EFMigrationsHistory ORDER BY MigrationId').splitlines()
     assert '20261117070000_AccountVerificationAndCandidatePhotos' in applied, applied
     assert sql("SELECT COUNT(*) FROM Elections WHERE Name='Legacy Archived Election'") == '1'
-
-    proc, log_file = start_app()
 
     # 3. Guest homepage, Privacy & Terms links, and show/hide password toggles
     print('3. Checking public navigation, privacy/terms pages, and password toggle markup...')

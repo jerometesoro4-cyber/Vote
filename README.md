@@ -59,7 +59,9 @@ In PowerShell, load `.env` and apply the schema to the database configured above
 dotnet run --no-launch-profile -- --migrate
 ```
 
-The first run creates the configured database if needed and applies the migrations. Later runs apply pending migrations and return to the prompt. For an existing database, confirm the server and database name before running the command. In SSMS, refresh the database and check **Tables → dbo.__EFMigrationsHistory** for the applied migrations. Resolve any migration error before starting the website.
+The first run creates the configured database if needed and applies the migrations. Later runs apply pending migrations and return to the prompt. For an existing database, confirm the server and database name before running the command. In SSMS, refresh the database and check **Tables → dbo.__EFMigrationsHistory** for the applied migrations.
+
+In Development, starting the app from PowerShell or the debugger also applies pending migrations to its configured database before serving pages. Use Development with a local development database. Outside Development, apply migrations explicitly before starting the app. If a migration is pending, startup stops with instructions for upgrading the database.
 
 ASP.NET Core reads environment variables from the process, so run the loader in each new PowerShell window before you start or migrate the app. `-Overwrite` refreshes keys listed in `.env`. If you remove a key from `.env`, open a new terminal to clear values imported by the old terminal.
 
@@ -199,7 +201,7 @@ For manual offline testing with disposable accounts, use `ASPNETCORE_ENVIRONMENT
 | `dotnet` is missing or SDK version is wrong | Install the .NET 10 SDK and reopen the terminal. |
 | Cannot connect to SQL Server | Check that the server is running and that you can connect to the exact instance in SSMS. SQL Server Express commonly uses `.\SQLEXPRESS`. |
 | Login failed for Windows user | Use a Windows account with access to that instance and database. For initial setup, use an account with permission to create the database or ask the DBA to provision it. |
-| Tables are missing or login shows `Invalid column name 'voting_group'` | Load `.env` and apply migrations against the same database the website uses. |
+| Tables or columns are missing, including `voting_group`, `PhotoContentType`, or `PhotoFileName` | Pull the current code, confirm the app points to the intended SQL Server database, and restart in Development or apply the migration explicitly as shown in step 4. |
 | The first administrator cannot register | With no existing administrators, set `AdminAccount__InvitationCode` in `.env` (reload with `. .\scripts\import-dotenv.ps1 -Overwrite`) or `AdminAccount:InvitationCode` in user secrets, then restart the app. |
 | An invitation is rejected | Check that it is unused, not revoked, and less than seven days old. Existing administrators can issue a replacement from Account. The bootstrap code works only before the first administrator exists. |
 | Address/port already in use | Stop your previous run with Ctrl+C, or choose another port in `--urls`. |
