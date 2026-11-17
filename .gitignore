@@ -3,9 +3,17 @@ bin/
 obj/
 *.user
 
+.env
+.env.*
+*.env
+!.env.example
+
 .agent-logs/
+*.log
+*.eml
 
 .agents/
 skills-lock.json
 .taste-skill/
 __pycache__/
+App_Data/

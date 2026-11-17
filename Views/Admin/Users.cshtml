@@ -1,36 +1,91 @@
 @model voting.Models.DashboardViewModel
-@{ViewData["Title"]="Voters";}<div class="page-heading">
-<div>
-<h1>Registered voters</h1>
-<p>Student accounts registered in this workspace.</p>
+@{
+    ViewData["Title"] = "Voters";
+    var voters = Model.PagedVoters ?? [];
+    var hasFilters = !string.IsNullOrWhiteSpace(Model.SearchQuery) || !string.IsNullOrWhiteSpace(Model.GroupFilter);
+}
+<div class="page-heading">
+    <div>
+        <h1>Registered voters</h1>
+        <p>Student accounts registered in this workspace.</p>
+    </div>
 </div>
-</div>
-<section class="panel">
-<h2>@Model.StudentCount student accounts</h2>
-<div class="table-wrapper" role="region" aria-label="Registered students" tabindex="0">
-<table>
-<thead>
-<tr>
-<th scope="col">NAME</th>
-<th scope="col">EMAIL</th>
-<th scope="col">YEAR LEVEL</th>
-<th scope="col">VOTING GROUP</th>
-<th scope="col">REGISTERED · UTC</th>
-</tr>
-</thead>
-<tbody>@foreach(var u in Model.Users.Where(u=>u.Role=="Student")){<tr>
-<th scope="row">@u.FullName</th>
-<td>@u.Email</td>
-<td>@u.YearLevel</td>
-<td>
-    <form class="voter-group-form" asp-action="AssignVotingGroup" method="post">
-        <input type="hidden" name="id" value="@u.Id"/>
-        <input name="votingGroup" value="@u.VotingGroup" maxlength="100" aria-label="Voting group for @u.FullName"/>
-        <button class="button secondary" type="submit">Save group</button>
+<section class="panel filter-panel">
+    <form method="get" asp-action="Users" class="filter-bar">
+        <div class="field">
+            <label for="voter-search">Search voters</label>
+            <input id="voter-search" type="search" name="q" value="@Model.SearchQuery" placeholder="Name, email, year level, or group..." enterkeyhint="search" />
+        </div>
+        <div class="field">
+            <label for="voter-group-filter">Voting group</label>
+            <select id="voter-group-filter" name="group">
+                <option value="">All groups</option>
+                <option value="__none__" selected="@(Model.GroupFilter == "__none__")">Unassigned</option>
+                @foreach (var grp in Model.AvailableGroups)
+                {
+                    <option value="@grp" selected="@string.Equals(Model.GroupFilter, grp, StringComparison.OrdinalIgnoreCase)">@grp</option>
+                }
+            </select>
+        </div>
+        <div class="filter-actions">
+            <button type="submit">Filter</button>
+            @if (hasFilters)
+            {
+                <a class="button secondary" asp-action="Users">Clear</a>
+            }
+        </div>
     </form>
-</td>
-<td>@u.CreatedAtUtc.ToString("MMM d, yyyy")</td>
-</tr>}</tbody>
-</table>
-</div>
+</section>
+
+<section class="panel">
+    <h2>@(hasFilters ? $"{Model.TotalItems} matching of {Model.StudentCount} student accounts" : $"{Model.StudentCount} student accounts")</h2>
+    @if (voters.Count == 0)
+    {
+        <div class="empty">
+            <strong>@(hasFilters ? "No matching voters" : "No registered students yet")</strong>
+            <p>@(hasFilters ? "No student accounts match the current search or group filter." : "Students will appear here after registering and verifying their email.")</p>
+            @if (hasFilters)
+            {
+                <a class="button secondary" asp-action="Users">Reset filters</a>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="table-wrapper" role="region" aria-label="Registered students" tabindex="0">
+            <table>
+                <thead>
+                    <tr>
+                        <th scope="col">NAME</th>
+                        <th scope="col">EMAIL</th>
+                        <th scope="col">YEAR LEVEL</th>
+                        <th scope="col">VOTING GROUP</th>
+                        <th scope="col">REGISTERED · UTC</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var u in voters)
+                    {
+                        <tr>
+                            <th scope="row">@u.FullName</th>
+                            <td>@u.Email</td>
+                            <td>@u.YearLevel</td>
+                            <td>
+                                <form class="voter-group-form" asp-action="AssignVotingGroup" method="post">
+                                    <input type="hidden" name="id" value="@u.Id"/>
+                                    <input type="hidden" name="q" value="@Model.SearchQuery"/>
+                                    <input type="hidden" name="group" value="@Model.GroupFilter"/>
+                                    <input type="hidden" name="page" value="@Model.CurrentPage"/>
+                                    <input name="votingGroup" value="@u.VotingGroup" maxlength="100" aria-label="Voting group for @u.FullName"/>
+                                    <button class="button secondary" type="submit">Save group</button>
+                                </form>
+                            </td>
+                            <td>@u.CreatedAtUtc.ToString("MMM d, yyyy")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <partial name="_Pagination" model="@(new PaginationModel(Model.CurrentPage, Model.TotalPages, Model.TotalItems, Model.PageSize, "Users", null, Model.SearchQuery, null, Model.GroupFilter))" />
+    }
 </section>

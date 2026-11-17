@@ -33,4 +33,8 @@ public class UserAccount
     public string? VotingGroup { get; set; }
 
     public DateTime CreatedAtUtc { get; set; }
+
+    public DateTime? EmailVerifiedAtUtc { get; set; }
+
+    public int SessionVersion { get; set; } = 1;
 }

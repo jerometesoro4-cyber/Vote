@@ -67,9 +67,11 @@ else { <li>
     <nav aria-label="Help">
         <a asp-controller="Help" asp-action="HowToVote">Voting guide</a>
         <a asp-controller="Help" asp-action="Privacy">Privacy</a>
+        <a asp-controller="Help" asp-action="Terms">Terms &amp; conditions</a>
     </nav>
 </footer>
 </div>
 </div>
+<script src="~/js/site.js" asp-append-version="true" defer></script>
 @await RenderSectionAsync("Scripts", required:false)</body>
 </html>

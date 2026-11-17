@@ -3,7 +3,27 @@
     ViewData["Title"] = "Elections";
     var election = Model.SelectedElection;
     var now = DateTime.UtcNow;
-    var canEdit = election != null && (election.Status is "Draft" or "Open") && !Model.Ballots.Any(b => b.ElectionId == election.Id);
+    var hasBallots = election != null && Model.Ballots.Any(b => b.ElectionId == election.Id);
+    var canEdit = election != null && (election.Status is "Draft" or "Open") && !hasBallots;
+    var canDelete = election != null && election.Status == "Draft" && !hasBallots;
+    var listUrl = Url.Action("Elections", "Admin", new
+    {
+        q = string.IsNullOrWhiteSpace(Model.SearchQuery) ? null : Model.SearchQuery,
+        status = string.IsNullOrWhiteSpace(Model.StatusFilter) ? null : Model.StatusFilter,
+        group = string.IsNullOrWhiteSpace(Model.GroupFilter) ? null : Model.GroupFilter,
+        page = Model.CurrentPage > 1 ? Model.CurrentPage : (int?)null
+    }) ?? Url.Action("Elections", "Admin")!;
+}
+
+@if (election != null)
+{
+    var crumbs = new (string Label, string Url)[]
+    {
+        ("Overview", Url.Action("Index", "Admin")!),
+        ("Elections", listUrl),
+        (election.Name, Url.Action("Elections", "Admin", new { id = election.Id })!)
+    };
+    <partial name="_Breadcrumbs" model="crumbs" />
 }
 
 <div class="page-heading">
@@ -16,7 +36,7 @@
     </div>
     @if (election != null)
     {
-        <a class="button secondary" asp-action="Elections" asp-route-id="">All elections</a>
+        <a class="button secondary" href="@listUrl">All elections</a>
     }
     else
     {
@@ -26,7 +46,45 @@
 
 @if (election == null)
 {
+    <section class="panel filter-panel">
+        <form method="get" asp-action="Elections" class="filter-bar">
+            <div class="field">
+                <label for="election-search">Search elections</label>
+                <input id="election-search" type="search" name="q" value="@Model.SearchQuery" placeholder="Name or voter group..." enterkeyhint="search" />
+            </div>
+            <div class="field">
+                <label for="election-status">Status</label>
+                <select id="election-status" name="status">
+                    <option value="">All statuses</option>
+                    <option value="Draft" selected="@(Model.StatusFilter == "Draft")">Draft</option>
+                    <option value="Open" selected="@(Model.StatusFilter == "Open")">Open</option>
+                    <option value="Closed" selected="@(Model.StatusFilter == "Closed")">Closed</option>
+                </select>
+            </div>
+            <div class="field">
+                <label for="election-group">Voter group</label>
+                <select id="election-group" name="group">
+                    <option value="">All voter groups</option>
+                    <option value="__none__" selected="@(Model.GroupFilter == "__none__")">All students (unrestricted)</option>
+                    @foreach (var grp in Model.AvailableGroups)
+                    {
+                        <option value="@grp" selected="@string.Equals(Model.GroupFilter, grp, StringComparison.OrdinalIgnoreCase)">@grp</option>
+                    }
+                </select>
+            </div>
+            <div class="filter-actions">
+                <button type="submit">Filter</button>
+                @if (!string.IsNullOrWhiteSpace(Model.SearchQuery) || !string.IsNullOrWhiteSpace(Model.StatusFilter) || !string.IsNullOrWhiteSpace(Model.GroupFilter))
+                {
+                    <a class="button secondary" asp-action="Elections">Clear</a>
+                }
+            </div>
+        </form>
+    </section>
+
     <partial name="_ElectionList" model="Model"/>
+    <partial name="_Pagination" model="@(new PaginationModel(Model.CurrentPage, Model.TotalPages, Model.TotalItems, Model.PageSize, "Elections", null, Model.SearchQuery, Model.StatusFilter, Model.GroupFilter))" />
+
     <section id="create-election" class="panel election-create" tabindex="-1">
         <h2>Create election</h2>
         <form asp-action="CreateElection" method="post">
@@ -55,14 +113,15 @@ else
         <div class="quick-links">
             <a asp-action="Positions" asp-route-id="@election.Id">Positions (@election.Positions.Count)</a>
             <a asp-action="Candidates" asp-route-id="@election.Id">Candidates (@election.Positions.Sum(p => p.Candidates.Count))</a>
+            <a asp-action="Report" asp-route-id="@election.Id">Printable results report →</a>
         </div>
         @if (election.Status == "Draft" && election.EndsAtUtc <= now)
         {
-            <p>The voting period has ended. <a href="#edit-schedule">Set a future end time</a> to open voting.</p>
+            <p class="form-actions">The voting period has ended. <a href="#edit-schedule">Set a future end time</a> to open voting.</p>
         }
         else if (election.Status == "Draft" && !election.HasCompleteBallot())
         {
-            <p>Add at least one position and enough candidates to meet each position's minimum.</p>
+            <p class="form-actions">Add at least one position and enough candidates to meet each position's minimum.</p>
         }
         else if (election.Status is "Draft" or "Open")
         {
@@ -71,6 +130,32 @@ else
                 <input type="hidden" name="status" value="@(election.Status == "Draft" ? "Open" : "Closed")"/>
                 <button type="submit">@(election.Status == "Draft" ? "Open voting" : "Close voting")</button>
             </form>
+        }
+
+        @if (canDelete)
+        {
+            <div class="danger-zone">
+                <button type="button" class="button danger-outline" command="show-modal" commandfor="delete-election-@election.Id">
+                    Delete draft election
+                </button>
+                <dialog id="delete-election-@election.Id" class="confirm-dialog" aria-labelledby="delete-election-title-@election.Id">
+                    <h2 id="delete-election-title-@election.Id">Delete draft election?</h2>
+                    <p>This permanently deletes <strong>@election.Name</strong>, its positions, and its candidates. Elections with ballots cannot be deleted.</p>
+                    <div class="dialog-actions">
+                        <form method="dialog">
+                            <button type="submit" value="cancel" class="button secondary" command="close" commandfor="delete-election-@election.Id" autofocus>Cancel</button>
+                        </form>
+                        <form asp-action="DeleteElection" method="post">
+                            <input type="hidden" name="id" value="@election.Id"/>
+                            <input type="hidden" name="q" value="@Model.SearchQuery"/>
+                            <input type="hidden" name="status" value="@Model.StatusFilter"/>
+                            <input type="hidden" name="group" value="@Model.GroupFilter"/>
+                            <input type="hidden" name="page" value="@Model.CurrentPage"/>
+                            <button type="submit" class="button danger">Delete election</button>
+                        </form>
+                    </div>
+                </dialog>
+            </div>
         }
     </section>
     @if (canEdit)

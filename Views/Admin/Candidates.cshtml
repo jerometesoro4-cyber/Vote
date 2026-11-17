@@ -2,12 +2,27 @@
 @{
     ViewData["Title"] = "Candidates";
     var election = Model.SelectedElection;
+    var hasBallots = election != null && Model.Ballots.Any(b => b.ElectionId == election.Id);
+    var pagedCandidates = Model.PagedCandidates ?? [];
+    var hasFilters = !string.IsNullOrWhiteSpace(Model.SearchQuery) || Model.PositionFilter.HasValue || !string.IsNullOrWhiteSpace(Model.StatusFilter);
+}
+
+@if (election != null)
+{
+    var crumbs = new (string Label, string Url)[]
+    {
+        ("Overview", Url.Action("Index", "Admin")!),
+        ("Elections", Url.Action("Elections", "Admin")!),
+        (election.Name, Url.Action("Elections", "Admin", new { id = election.Id })!),
+        ("Candidates", Url.Action("Candidates", "Admin", new { id = election.Id })!)
+    };
+    <partial name="_Breadcrumbs" model="crumbs" />
 }
 
 <div class="page-heading">
     <div>
         <h1>Candidates</h1>
-        <p>@(election?.Name ?? "Choose an election to manage its candidates.")</p>
+        <p>@(election?.Name ?? "Search candidates across elections or choose an election to manage its ballot.")</p>
     </div>
     @if (election != null)
     {
@@ -17,7 +32,76 @@
 
 @if (election == null)
 {
-    <partial name="_ElectionList" model="Model"/>
+    <section class="panel filter-panel">
+        <h2>Search candidates</h2>
+        <form method="get" asp-action="Candidates" class="filter-bar">
+            <div class="field">
+                <label for="candidate-search">Search name, party, position, or election</label>
+                <input id="candidate-search" type="search" name="q" value="@Model.SearchQuery" placeholder="Search candidates..." enterkeyhint="search" />
+            </div>
+            <div class="field">
+                <label for="candidate-election-status">Election status</label>
+                <select id="candidate-election-status" name="status">
+                    <option value="">All statuses</option>
+                    <option value="Draft" selected="@(Model.StatusFilter == "Draft")">Draft</option>
+                    <option value="Open" selected="@(Model.StatusFilter == "Open")">Open</option>
+                    <option value="Closed" selected="@(Model.StatusFilter == "Closed")">Closed</option>
+                </select>
+            </div>
+            <div class="filter-actions">
+                <button type="submit">Filter</button>
+                @if (hasFilters)
+                {
+                    <a class="button secondary" asp-action="Candidates" asp-route-id="">Clear</a>
+                }
+            </div>
+        </form>
+    </section>
+
+    @if (pagedCandidates.Count == 0)
+    {
+        <div class="empty">
+            <strong>@(hasFilters ? "No matching candidates" : "No candidates yet")</strong>
+            <p>@(hasFilters ? "No candidates match the current search or filter." : "Select a draft election below to add candidates.")</p>
+            @if (hasFilters)
+            {
+                <a class="button secondary" asp-action="Candidates" asp-route-id="">Reset filters</a>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="candidate-grid">
+            @foreach (var candidate in pagedCandidates)
+            {
+                <article class="candidate-card">
+                    @if (candidate.HasPhoto)
+                    {
+                        <img class="candidate-photo" src="@Url.Action("CandidatePhoto", "PublicPortal", new { id = candidate.Id })" alt="Photo of @candidate.Name" loading="lazy" />
+                    }
+                    <p>@candidate.Position.Name · @candidate.Position.Election.Name (@candidate.Position.Election.Status)</p>
+                    <h2>@candidate.Name</h2>
+                    @if (!string.IsNullOrWhiteSpace(candidate.Party))
+                    {
+                        <p>@candidate.Party</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(candidate.Platform))
+                    {
+                        <p>@candidate.Platform</p>
+                    }
+                    <p class="candidate-card-link">
+                        <a asp-action="Candidates" asp-route-id="@candidate.Position.ElectionId">Manage in election →</a>
+                    </p>
+                </article>
+            }
+        </div>
+        <partial name="_Pagination" model="@(new PaginationModel(Model.CurrentPage, Model.TotalPages, Model.TotalItems, Model.PageSize, "Candidates", null, Model.SearchQuery, Model.StatusFilter))" />
+    }
+
+    <section class="panel">
+        <h2>Manage candidates by election</h2>
+        <partial name="_ElectionList" model="Model"/>
+    </section>
 }
 else
 {
@@ -31,8 +115,11 @@ else
             }
             else
             {
-                <form asp-action="AddCandidate" method="post">
+                <form asp-action="AddCandidate" method="post" enctype="multipart/form-data">
                     <input type="hidden" name="electionId" value="@election.Id"/>
+                    <input type="hidden" name="q" value="@Model.SearchQuery"/>
+                    <input type="hidden" name="filterPositionId" value="@Model.PositionFilter"/>
+                    <input type="hidden" name="page" value="@Model.CurrentPage"/>
                     <div class="form-grid">
                         <div class="field">
                             <label for="position">Position</label>
@@ -53,6 +140,10 @@ else
                             <input id="party" name="party" maxlength="100"/>
                         </div>
                         <div class="field">
+                            <label for="photo">Candidate photo <span class="optional">(optional, JPEG/PNG/WebP under 2 MB)</span></label>
+                            <input id="photo" name="photo" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"/>
+                        </div>
+                        <div class="field field-full">
                             <label for="platform">Platform</label>
                             <textarea id="platform" name="platform" maxlength="2000"></textarea>
                         </div>
@@ -62,5 +153,136 @@ else
             }
         </section>
     }
-    <partial name="_CandidateCards" model="election.Positions.SelectMany(p => p.Candidates).ToList()"/>
+
+    <section class="panel filter-panel">
+        <form method="get" asp-action="Candidates" asp-route-id="@election.Id" class="filter-bar">
+            <div class="field">
+                <label for="scoped-candidate-search">Search candidates</label>
+                <input id="scoped-candidate-search" type="search" name="q" value="@Model.SearchQuery" placeholder="Name, party, or platform..." enterkeyhint="search" />
+            </div>
+            <div class="field">
+                <label for="scoped-position-filter">Position</label>
+                <select id="scoped-position-filter" name="positionId">
+                    <option value="">All positions</option>
+                    @foreach (var pos in election.Positions.OrderBy(p => p.Id))
+                    {
+                        <option value="@pos.Id" selected="@(Model.PositionFilter == pos.Id)">@pos.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="filter-actions">
+                <button type="submit">Filter</button>
+                @if (hasFilters)
+                {
+                    <a class="button secondary" asp-action="Candidates" asp-route-id="@election.Id">Clear</a>
+                }
+            </div>
+        </form>
+    </section>
+
+    @if (pagedCandidates.Count == 0)
+    {
+        <div class="empty">
+            <strong>@(hasFilters ? "No matching candidates" : "No candidates yet")</strong>
+            <p>@(hasFilters ? "No candidates in this election match your search or position filter." : "Add candidates to each position before opening the election.")</p>
+            @if (hasFilters)
+            {
+                <a class="button secondary" asp-action="Candidates" asp-route-id="@election.Id">Reset filters</a>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="candidate-grid">
+            @foreach (var candidate in pagedCandidates)
+            {
+                <article class="candidate-card">
+                    @if (candidate.HasPhoto)
+                    {
+                        <img class="candidate-photo" src="@Url.Action("CandidatePhoto", "PublicPortal", new { id = candidate.Id })" alt="Photo of @candidate.Name" loading="lazy" />
+                    }
+                    <p>@candidate.Position.Name · @election.Name</p>
+                    <h2>@candidate.Name</h2>
+                    @if (!string.IsNullOrWhiteSpace(candidate.Party))
+                    {
+                        <p>@candidate.Party</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(candidate.Platform))
+                    {
+                        <p>@candidate.Platform</p>
+                    }
+
+                    @if (election.Status == "Draft" && !hasBallots)
+                    {
+                        <details class="candidate-edit">
+                            <summary>Edit candidate</summary>
+                            <form asp-action="UpdateCandidate" method="post" enctype="multipart/form-data" class="candidate-edit-form">
+                                <input type="hidden" name="id" value="@candidate.Id"/>
+                                <input type="hidden" name="electionId" value="@election.Id"/>
+                                <input type="hidden" name="q" value="@Model.SearchQuery"/>
+                                <input type="hidden" name="filterPositionId" value="@Model.PositionFilter"/>
+                                <input type="hidden" name="page" value="@Model.CurrentPage"/>
+                                <div class="field">
+                                    <label for="edit-pos-@candidate.Id">Position</label>
+                                    <select id="edit-pos-@candidate.Id" name="positionId" required>
+                                        @foreach (var pos in election.Positions.OrderBy(p => p.Id))
+                                        {
+                                            <option value="@pos.Id" selected="@(pos.Id == candidate.PositionId)">@pos.Name</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="field">
+                                    <label for="edit-name-@candidate.Id">Full name</label>
+                                    <input id="edit-name-@candidate.Id" name="name" value="@candidate.Name" maxlength="100" required/>
+                                </div>
+                                <div class="field">
+                                    <label for="edit-party-@candidate.Id">Party / affiliation</label>
+                                    <input id="edit-party-@candidate.Id" name="party" value="@candidate.Party" maxlength="100"/>
+                                </div>
+                                <div class="field">
+                                    <label for="edit-platform-@candidate.Id">Platform</label>
+                                    <textarea id="edit-platform-@candidate.Id" name="platform" maxlength="2000">@candidate.Platform</textarea>
+                                </div>
+                                <div class="field">
+                                    <label for="edit-photo-@candidate.Id">Replace photo <span class="optional">(JPEG/PNG/WebP, max 2 MB)</span></label>
+                                    <input id="edit-photo-@candidate.Id" name="photo" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"/>
+                                </div>
+                                @if (candidate.HasPhoto)
+                                {
+                                    <label class="checkbox-inline">
+                                        <input type="checkbox" name="removePhoto" value="true"/>
+                                        Remove existing photo
+                                    </label>
+                                }
+                                <button type="submit">Save changes</button>
+                            </form>
+                        </details>
+                        <div class="candidate-actions">
+                            <button type="button" class="button danger-outline" command="show-modal" commandfor="delete-candidate-@candidate.Id">
+                                Delete candidate
+                            </button>
+                            <dialog id="delete-candidate-@candidate.Id" class="confirm-dialog" aria-labelledby="delete-candidate-title-@candidate.Id">
+                                <h2 id="delete-candidate-title-@candidate.Id">Delete candidate?</h2>
+                                <p>Remove <strong>@candidate.Name</strong> from <strong>@candidate.Position.Name</strong>? This only works while the election is a draft with no ballots.</p>
+                                <div class="dialog-actions">
+                                    <form method="dialog">
+                                        <button type="submit" value="cancel" class="button secondary" command="close" commandfor="delete-candidate-@candidate.Id" autofocus>Cancel</button>
+                                    </form>
+                                    <form asp-action="DeleteCandidate" method="post">
+                                        <input type="hidden" name="id" value="@candidate.Id"/>
+                                        <input type="hidden" name="electionId" value="@election.Id"/>
+                                        <input type="hidden" name="q" value="@Model.SearchQuery"/>
+                                        <input type="hidden" name="filterPositionId" value="@Model.PositionFilter"/>
+                                        <input type="hidden" name="page" value="@Model.CurrentPage"/>
+                                        <button type="submit" class="button danger">Delete candidate</button>
+                                    </form>
+                                </div>
+                            </dialog>
+                        </div>
+                    }
+                </article>
+            }
+        </div>
+        <partial name="_Pagination" model="@(new PaginationModel(Model.CurrentPage, Model.TotalPages, Model.TotalItems, Model.PageSize, "Candidates", election.Id, Model.SearchQuery, null, null, Model.PositionFilter))" />
+    }
 }

@@ -9,6 +9,10 @@ else
         @foreach (var candidate in Model.OrderBy(c => c.PositionId).ThenBy(c => c.Id))
         {
             <article class="candidate-card">
+                @if (candidate.HasPhoto)
+                {
+                    <img class="candidate-photo" src="@Url.Action("CandidatePhoto", "PublicPortal", new { id = candidate.Id })" alt="Photo of @candidate.Name" loading="lazy" />
+                }
                 <p>@candidate.Position.Name · @candidate.Position.Election.Name</p>
                 <h2>@candidate.Name</h2>
                 @if (!string.IsNullOrWhiteSpace(candidate.Party))

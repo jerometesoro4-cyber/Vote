@@ -1,0 +1,46 @@
+@{
+    ViewData["Title"] = "Terms and Conditions";
+}
+
+<div class="page-heading">
+    <div>
+        <p class="eyebrow">INSTITUTIONAL DRAFT TEXT</p>
+        <h1>Terms and Conditions</h1>
+        <p>Rules governing verified access, administration, and ballot submission on ACMCL Vote.</p>
+    </div>
+</div>
+
+<div class="content-card legal-doc">
+    <p class="notice success" role="note">
+        <strong>Draft notice:</strong> This document is institutional draft text prepared for ACMCL College Inc. review prior to formal publication.
+    </p>
+
+    <h2>1. Verified Access and Account Security</h2>
+    <ul>
+        <li><strong>Email ownership verification:</strong> All new student and administrator accounts, as well as previously created unverified accounts at their next sign-in, must verify control of their registered email address via a 6-digit single-use code before an authenticated session is issued.</li>
+        <li><strong>Credentials and codes:</strong> Users must choose a password of 12 to 256 characters and keep passwords, verification codes, password recovery codes, and administrator invitation codes confidential.</li>
+        <li><strong>Password reset behavior:</strong> Completing a password reset via recovery code immediately invalidates older active sessions for that account.</li>
+        <li><strong>Administrator enrollment:</strong> Administrator accounts require a valid single-use invitation (or initial bootstrap code when no administrator exists). Attempting to bypass role or verification controls is prohibited.</li>
+    </ul>
+
+    <h2>2. Eligibility and Voting Schedules</h2>
+    <ul>
+        <li>Voting windows start and end according to Philippine Time (<code>Asia/Manila</code>, PHT).</li>
+        <li>Elections restricted to a specific voting group are accessible only to verified students assigned to that group by an administrator.</li>
+        <li>Each position specifies a minimum and maximum number of selections; ballots that violate position limits or include invalid candidates are rejected.</li>
+    </ul>
+
+    <h2>3. Ballot Review and Submission</h2>
+    <ul>
+        <li>Students must review their selections on the confirmation step before submitting a final ballot.</li>
+        <li>Each verified student account may submit at most one ballot per election. Duplicate submissions are rejected.</li>
+        <li>Submitted ballots are recorded in the system database linked to the voter's account identifier and cannot be altered or withdrawn after submission.</li>
+    </ul>
+
+    <h2>4. Election Administration and Candidate Media</h2>
+    <ul>
+        <li>Administrators may edit or move draft candidates, upload or replace valid JPEG/PNG/WebP candidate photographs, or delete draft candidates and draft elections only while the election remains in <code>Draft</code> status with zero submitted ballots.</li>
+        <li>Once an election opens or receives ballots, its positions, candidates, and ballot history are preserved and cannot be deleted through maintenance actions.</li>
+        <li>Public and student results views display tallies only for elections whose status is <code>Closed</code>.</li>
+    </ul>
+</div>

@@ -4,6 +4,18 @@
     var election = Model.SelectedElection;
 }
 
+@if (election != null)
+{
+    var crumbs = new (string Label, string Url)[]
+    {
+        ("Overview", Url.Action("Index", "Admin")!),
+        ("Elections", Url.Action("Elections", "Admin")!),
+        (election.Name, Url.Action("Elections", "Admin", new { id = election.Id })!),
+        ("Positions", Url.Action("Positions", "Admin", new { id = election.Id })!)
+    };
+    <partial name="_Breadcrumbs" model="crumbs" />
+}
+
 <div class="page-heading">
     <div>
         <h1>Positions</h1>

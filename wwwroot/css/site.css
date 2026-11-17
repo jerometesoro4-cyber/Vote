@@ -1073,3 +1073,393 @@ input:focus,select:focus,textarea:focus { border-color:var(--action); }
 }
 @media(max-width:760px) { .stat small { display:block; } }
 @media(max-width:390px) { .stats-grid { grid-template-columns:1fr; } .quick-links { grid-template-columns:1fr; } .panel-head { align-items:flex-start; flex-wrap:wrap; } }
+
+/* Breadcrumbs */
+.breadcrumb {
+    margin-bottom: 14px;
+}
+.breadcrumb > ol {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 13px;
+}
+.breadcrumb > ol > li {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+.breadcrumb > ol > li + li::before {
+    content: "/" / "";
+    color: var(--muted);
+}
+.breadcrumb > ol > li > a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+.breadcrumb > ol > li > a[aria-current="page"] {
+    color: var(--ink);
+    font-weight: 700;
+    text-decoration: none;
+}
+
+/* Filter bars and pagination */
+.filter-panel {
+    padding: 18px 20px;
+}
+.filter-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 14px;
+    align-items: end;
+}
+.filter-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+.pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+}
+.pagination-summary {
+    color: var(--muted);
+    font-size: 13px;
+}
+.pagination-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.pagination-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: #fff;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 600;
+}
+.pagination-link:hover {
+    border-color: var(--action);
+}
+.pagination-link.current {
+    background: var(--action);
+    border-color: var(--action);
+    color: #fff;
+    text-decoration: none;
+}
+.pagination-link.disabled {
+    color: var(--muted);
+    background: #f5f7f6;
+    cursor: not-allowed;
+}
+.pagination-ellipsis {
+    padding: 0 4px;
+    color: var(--muted);
+}
+
+/* Candidate photos, editing, and native confirmation dialogs */
+.field-full {
+    grid-column: 1 / -1;
+}
+.candidate-photo {
+    display: block;
+    width: 100%;
+    max-width: 160px;
+    height: 160px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    margin-bottom: 12px;
+    background: #f6faf7;
+}
+.ballot-photo {
+    width: 44px;
+    height: 44px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    flex-shrink: 0;
+}
+.candidate-card-link {
+    margin-top: 10px;
+}
+.candidate-edit {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+}
+.candidate-edit summary {
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 650;
+    color: var(--action);
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+}
+.candidate-edit-form {
+    display: grid;
+    gap: 12px;
+    margin-top: 12px;
+}
+.checkbox-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    min-height: 36px;
+}
+.candidate-actions,
+.danger-zone {
+    margin-top: 14px;
+}
+.button.danger-outline {
+    background: #fff;
+    border-color: #d68b80;
+    color: #9b2618;
+}
+.button.danger-outline:hover {
+    background: #fff3f1;
+    border-color: #a13120;
+    color: #821d10;
+}
+.button.danger,
+button[type=submit].danger {
+    background: #a13120;
+    border-color: #a13120;
+    color: #fff;
+}
+.button.danger:hover,
+button[type=submit].danger:hover {
+    background: #821d10;
+    border-color: #821d10;
+}
+
+dialog.confirm-dialog {
+    width: min(92vw, 440px);
+    padding: 24px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: #fff;
+    color: var(--ink);
+    box-shadow: 0 20px 50px rgba(16, 46, 36, 0.25);
+}
+dialog:modal {
+    overscroll-behavior: contain;
+}
+dialog::backdrop {
+    overflow: hidden;
+    overscroll-behavior: contain;
+    background: rgba(16, 46, 36, 0.45);
+}
+.dialog-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+/* Printable election results report */
+.result-report-bar {
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: flex-end;
+}
+.report-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.report-sheet {
+    max-width: 56rem;
+    margin-inline: auto;
+    padding: 32px;
+}
+.report-header {
+    border-bottom: 2px solid var(--nav);
+    padding-bottom: 18px;
+    margin-bottom: 20px;
+}
+.report-brand {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+.report-brand img {
+    object-fit: contain;
+    flex-shrink: 0;
+}
+.report-institution {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 750;
+    color: var(--nav);
+}
+.report-subtitle {
+    margin: 2px 0 6px;
+    font-size: 13px;
+    color: var(--muted);
+}
+.report-title {
+    margin: 0;
+    font-size: 20px;
+}
+.report-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 20px;
+    margin: 0;
+    font-size: 13px;
+}
+.report-meta dt {
+    color: var(--muted);
+    font-weight: 600;
+}
+.report-meta dd {
+    margin: 2px 0 0;
+    font-weight: 650;
+}
+.report-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 22px;
+}
+.report-stat {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px 14px;
+    background: #fafcfa;
+}
+.report-stat span {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+}
+.report-stat strong {
+    display: block;
+    font-size: 22px;
+    color: var(--nav);
+    margin-top: 4px;
+}
+.report-candidate-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+.report-photo {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    flex-shrink: 0;
+}
+.report-footer {
+    margin-top: 28px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    font-size: 12px;
+    color: var(--muted);
+}
+.report-signatures {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 28px;
+    margin-top: 28px;
+}
+.signature-line {
+    display: block;
+    border-bottom: 1px solid var(--ink);
+    height: 24px;
+    margin-bottom: 6px;
+}
+.legal-doc h2 {
+    margin-top: 22px;
+    margin-bottom: 10px;
+}
+.legal-doc ul {
+    padding-left: 20px;
+}
+.legal-doc li + li {
+    margin-top: 8px;
+}
+
+@media(max-width:680px) {
+    .report-meta,
+    .report-summary,
+    .report-signatures {
+        grid-template-columns: 1fr;
+    }
+    .report-sheet {
+        padding: 18px;
+    }
+    .report-brand {
+        align-items: flex-start;
+    }
+}
+
+@media print {
+    :root {
+        background: #fff;
+        color: #000;
+    }
+    .app-sidebar,
+    .workspace-header,
+    .skip-link,
+    footer,
+    .breadcrumb,
+    .no-print {
+        display: none !important;
+    }
+    .app-shell {
+        display: block;
+    }
+    .page-main {
+        padding: 0;
+        max-width: none;
+    }
+    .report-sheet {
+        border: 0;
+        box-shadow: none;
+        padding: 0;
+        max-width: none;
+    }
+    .report-position {
+        break-inside: avoid;
+    }
+    .result-bar,
+    .result-bar span,
+    .result-share,
+    .report-stat {
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+    }
+}

@@ -1,0 +1,145 @@
+@model voting.Models.DashboardViewModel
+@using System.Globalization
+@{
+    var election = Model.SelectedElection!;
+    ViewData["Title"] = $"Results report · {election.Name}";
+    var manilaTz = TimeZoneInfo.FindSystemTimeZoneById("Asia/Manila");
+    var generatedAtManila = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, manilaTz);
+    var turnout = Model.ElectionTurnouts.SingleOrDefault(t => t.ElectionId == election.Id);
+    var electionResults = Model.Results.Where(r => r.ElectionId == election.Id).ToList();
+    var crumbs = new (string Label, string Url)[]
+    {
+        ("Overview", Url.Action("Index", "Admin")!),
+        ("Elections", Url.Action("Elections", "Admin")!),
+        (election.Name, Url.Action("Elections", "Admin", new { id = election.Id })!),
+        ("Results report", Url.Action("Report", "Admin", new { id = election.Id })!)
+    };
+}
+
+<div class="no-print">
+    <partial name="_Breadcrumbs" model="crumbs" />
+    <div class="page-heading">
+        <div>
+            <h1>Election results report</h1>
+            <p>Formatted for browser printing and PDF export.</p>
+        </div>
+        <div class="report-toolbar">
+            <a class="button secondary" asp-action="Elections" asp-route-id="@election.Id">Back to election</a>
+            <button type="button" class="button" data-print-report>Print / Save PDF</button>
+        </div>
+    </div>
+</div>
+
+<article class="panel report-sheet">
+    <header class="report-header">
+        <div class="report-brand">
+            <img src="~/images/logo.webp" alt="ACMCL Logo" width="64" height="64" />
+            <div>
+                <p class="report-institution">ACMCL College Inc.</p>
+                <p class="report-subtitle">Ark of the Covenant Montessori Chamber of Learning</p>
+                <h2 class="report-title">@election.Name — Official Election Results Report</h2>
+            </div>
+        </div>
+        <dl class="report-meta">
+            <div>
+                <dt>Status</dt>
+                <dd>@(turnout?.DisplayStatus ?? election.Status)</dd>
+            </div>
+            <div>
+                <dt>Voting period (PHT)</dt>
+                <dd>@election.StartsAtManila.ToString("MMM d, yyyy h:mm tt") – @election.EndsAtManila.ToString("MMM d, yyyy h:mm tt") PHT</dd>
+            </div>
+            <div>
+                <dt>Voter eligibility</dt>
+                <dd>@(election.RequiredGroup ?? "All registered students")</dd>
+            </div>
+            <div>
+                <dt>Generated (PHT)</dt>
+                <dd>@generatedAtManila.ToString("MMM d, yyyy h:mm tt") PHT</dd>
+            </div>
+        </dl>
+    </header>
+
+    <section class="report-summary" aria-label="Aggregate participation summary">
+        <div class="report-stat">
+            <span>Ballots cast</span>
+            <strong>@(turnout?.BallotCount ?? 0)</strong>
+        </div>
+        <div class="report-stat">
+            <span>Eligible voters</span>
+            <strong>@(turnout?.EligibleVoterCount ?? 0)</strong>
+        </div>
+        <div class="report-stat">
+            <span>Turnout</span>
+            <strong>@(turnout?.TurnoutPercent ?? 0)%</strong>
+        </div>
+        <div class="report-stat">
+            <span>Positions</span>
+            <strong>@election.Positions.Count</strong>
+        </div>
+    </section>
+
+    <section class="report-results">
+        @if (electionResults.Count == 0)
+        {
+            <p class="list-empty">No candidates or recorded position results exist for this election.</p>
+        }
+        else
+        {
+            @foreach (var position in electionResults.GroupBy(r => new { r.PositionId, r.PositionName }).OrderBy(g => g.Key.PositionId))
+            {
+                var total = position.Sum(r => (long)r.Votes);
+                <section class="result-position report-position">
+                    <div class="panel-head">
+                        <h3>@position.Key.PositionName</h3>
+                        <span class="muted">@total total @(total == 1 ? "selection" : "selections")</span>
+                    </div>
+                    <ul class="result-candidates" role="list">
+                        @foreach (var candidate in position.OrderByDescending(r => r.Votes).ThenBy(r => r.CandidateName))
+                        {
+                            var percentage = total == 0 ? 0 : 100.0 * candidate.Votes / total;
+                            <li>
+                                <div class="result-candidate report-candidate-row">
+                                    <span class="report-candidate-info">
+                                        @if (!string.IsNullOrEmpty(candidate.PhotoFileName))
+                                        {
+                                            <img class="report-photo" src="@Url.Action("CandidatePhoto", "PublicPortal", new { id = candidate.CandidateId })" alt="Photo of @candidate.CandidateName" />
+                                        }
+                                        <span>
+                                            <strong>@candidate.CandidateName</strong>
+                                            @if (!string.IsNullOrWhiteSpace(candidate.Party))
+                                            {
+                                                <small class="result-party">@candidate.Party</small>
+                                            }
+                                        </span>
+                                    </span>
+                                    <span class="result-metrics">
+                                        <strong>@candidate.Votes @(candidate.Votes == 1 ? "vote" : "votes")</strong>
+                                        <span class="result-share">@percentage.ToString("0.#", CultureInfo.InvariantCulture)%</span>
+                                    </span>
+                                </div>
+                                <div class="result-bar" aria-hidden="true">
+                                    <span style="width:@(percentage.ToString("0.##", CultureInfo.InvariantCulture))%"></span>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                </section>
+            }
+        }
+    </section>
+
+    <footer class="report-footer">
+        <p>Aggregate tallies generated by ACMCL Vote on @generatedAtManila.ToString("MMM d, yyyy h:mm tt") PHT. Individual ballot choices are omitted from this report.</p>
+        <div class="report-signatures">
+            <div>
+                <span class="signature-line"></span>
+                <span>Prepared by (Election Administrator)</span>
+            </div>
+            <div>
+                <span class="signature-line"></span>
+                <span>Verified by (Authorized Institutional Representative)</span>
+            </div>
+        </div>
+    </footer>
+</article>

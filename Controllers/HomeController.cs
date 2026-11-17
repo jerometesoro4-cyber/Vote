@@ -17,7 +17,12 @@ public class HomeController : Controller
 
     public IActionResult Privacy()
     {
-        return View();
+        return View("~/Views/Help/Privacy.cshtml");
+    }
+
+    public IActionResult Terms()
+    {
+        return View("~/Views/Help/Terms.cshtml");
     }
 
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]

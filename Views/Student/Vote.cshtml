@@ -88,6 +88,10 @@
                                 <label class="ballot-choice" for="candidate-@candidate.Id">
                                     <input id="candidate-@candidate.Id" type="@(multiple ? "checkbox" : "radio")" name="choices[@position.Id]"
                                            value="@candidate.Id" required="@(!multiple)" checked="@Model.SelectedCandidateIds.Contains(candidate.Id)"/>
+                                    @if (candidate.HasPhoto)
+                                    {
+                                        <img class="ballot-photo" src="@Url.Action("CandidatePhoto", "PublicPortal", new { id = candidate.Id })" alt="" loading="lazy" />
+                                    }
                                     <span>
                                         <strong>@candidate.Name</strong>
                                         @if (!string.IsNullOrWhiteSpace(candidate.Party))
@@ -114,10 +118,3 @@
         </form>
     }
 </div>
-
-@section Scripts {
-    @if (canVote && Model.BallotReviewToken == null && election.Positions.Any(p => p.AvailableMaxSelections > 1))
-    {
-        <script src="~/js/site.js" asp-append-version="true" defer></script>
-    }
-}

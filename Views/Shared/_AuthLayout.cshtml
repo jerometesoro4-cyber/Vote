@@ -18,8 +18,15 @@
             <p>College election portal</p>
         </header>
         <main class="auth-main" id="main-content" tabindex="-1">
-            <div class="auth-content">@RenderBody()</div>
+            <div class="auth-content">
+                @RenderBody()
+                <nav class="auth-legal" aria-label="Policies">
+                    <a asp-controller="Help" asp-action="Privacy">Privacy notice</a>
+                    <a asp-controller="Help" asp-action="Terms">Terms &amp; conditions</a>
+                </nav>
+            </div>
         </main>
     </div>
+    <script src="~/js/site.js" asp-append-version="true" defer></script>
 </body>
 </html>

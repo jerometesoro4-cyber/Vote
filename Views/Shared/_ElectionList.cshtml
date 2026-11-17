@@ -12,18 +12,35 @@
     };
     var now = DateTime.UtcNow;
     var submitted = Model.Ballots.Select(ballot => ballot.ElectionId).ToHashSet();
-    var rows = Model.Elections.Select(election => new
+    var sourceElections = Model.PagedElections ?? Model.Elections;
+    var isFilteredAdminList = controller == "Admin" && action == "Elections" && Model.PagedElections != null;
+    var rows = sourceElections.Select(election => new
     {
         Election = election,
         Submitted = controller == "Student" && submitted.Contains(election.Id),
         CanVote = destination == "Vote" && !submitted.Contains(election.Id)
             && election.IsVotingOpenAt(now) && election.HasCompleteBallot()
-    }).OrderByDescending(row => row.CanVote).ThenByDescending(row => row.Election.Id);
+    });
+    if (!isFilteredAdminList)
+    {
+        rows = rows.OrderByDescending(row => row.CanVote).ThenByDescending(row => row.Election.Id);
+    }
 }
 
-@if (Model.Elections.Count == 0)
+@if (sourceElections.Count == 0)
 {
-    <p class="list-empty">@(controller == "Student" && action == "Candidates" ? "No open elections." : "No elections yet.")</p>
+    if (isFilteredAdminList && (!string.IsNullOrWhiteSpace(Model.SearchQuery) || !string.IsNullOrWhiteSpace(Model.StatusFilter) || !string.IsNullOrWhiteSpace(Model.GroupFilter)))
+    {
+        <div class="empty">
+            <strong>No matching elections</strong>
+            <p>No elections match the current search or filters.</p>
+            <a class="button secondary" asp-controller="Admin" asp-action="Elections">Reset filters</a>
+        </div>
+    }
+    else
+    {
+        <p class="list-empty">@(controller == "Student" && action == "Candidates" ? "No open elections." : "No elections yet.")</p>
+    }
 }
 else
 {
@@ -31,7 +48,18 @@ else
         @foreach (var row in rows)
         {
             var election = row.Election;
-            var href = destination is null ? null : Url.Action(destination, controller, new { id = election.Id });
+            var href = destination is null
+                ? null
+                : (controller == "Admin" && action == "Elections"
+                    ? Url.Action(destination, controller, new
+                    {
+                        id = election.Id,
+                        q = string.IsNullOrWhiteSpace(Model.SearchQuery) ? null : Model.SearchQuery,
+                        status = string.IsNullOrWhiteSpace(Model.StatusFilter) ? null : Model.StatusFilter,
+                        group = string.IsNullOrWhiteSpace(Model.GroupFilter) ? null : Model.GroupFilter,
+                        page = Model.CurrentPage > 1 ? Model.CurrentPage : (int?)null
+                    })
+                    : Url.Action(destination, controller, new { id = election.Id }));
             var start = election.StartsAtManila.ToString("MMM d, h:mm tt");
             var end = election.EndsAtManila.ToString("MMM d, yyyy h:mm tt");
             var period = (destination, row.CanVote, row.Submitted) switch
@@ -61,6 +89,10 @@ else
                         @if (period != null)
                         {
                             <span class="election-period">@period</span>
+                        }
+                        @if (controller == "Admin" && !string.IsNullOrWhiteSpace(election.RequiredGroup))
+                        {
+                            <span class="election-period"> · Group: @election.RequiredGroup</span>
                         }
                     </span>
                     <span class="election-action @(row.CanVote ? "can-vote" : null)">

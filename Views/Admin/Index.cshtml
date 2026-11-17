@@ -1,83 +1,143 @@
 @model voting.Models.DashboardViewModel
+@using System.Globalization
 @{
     ViewData["Title"] = "Overview";
-    var students = Model.Users.Where(u => u.Role == "Student");
-    var ballotsByElection = Model.Ballots.ToLookup(b => b.ElectionId);
-    var possibleBallots = Model.Elections.Sum(e => students.Where(u => e.AllowsVoterGroup(u.VotingGroup)).Select(u => u.Id)
-        .Union(ballotsByElection[e.Id].Select(b => b.UserAccountId)).Count());
+    var possibleBallots = Model.ElectionTurnouts.Sum(t => t.EligibleVoterCount);
     var turnout = possibleBallots == 0 ? 0 : (int)Math.Round(100.0 * Model.BallotCount / possibleBallots);
+    var totalBallotsForShare = Math.Max(1, Model.BallotCount);
 }
 <div class="page-heading">
-<div>
-<h1>Election overview</h1>
-</div>
-<a class="button" asp-action="Elections" asp-fragment="create-election">Create election</a>
+    <div>
+        <h1>Election overview</h1>
+    </div>
+    <a class="button" asp-action="Elections" asp-fragment="create-election">Create election</a>
 </div>
 <div class="stats-grid">
-<div class="stat">
-<div class="stat-label">Registered voters <span class="stat-icon">♙</span>
-</div>
-<strong>@Model.StudentCount</strong>
-</div>
-<div class="stat">
-<div class="stat-label">Open elections <span class="stat-icon">▣</span>
-</div>
-<strong>@Model.Elections.Count(e => e.Status == "Open")</strong>
-</div>
-<div class="stat">
-<div class="stat-label">Ballots submitted <span class="stat-icon">✓</span>
-</div>
-<strong>@Model.BallotCount</strong>
-</div>
-<div class="stat">
-<div class="stat-label">Candidates <span class="stat-icon">♧</span>
-</div>
-<strong>@Model.Candidates.Count</strong>
-</div>
+    <div class="stat">
+        <div class="stat-label">Registered voters <span class="stat-icon">♙</span></div>
+        <strong>@Model.StudentCount</strong>
+    </div>
+    <div class="stat">
+        <div class="stat-label">Open elections <span class="stat-icon">▣</span></div>
+        <strong>@Model.Elections.Count(e => e.Status == "Open")</strong>
+    </div>
+    <div class="stat">
+        <div class="stat-label">Ballots submitted <span class="stat-icon">✓</span></div>
+        <strong>@Model.BallotCount</strong>
+    </div>
+    <div class="stat">
+        <div class="stat-label">Candidates <span class="stat-icon">♧</span></div>
+        <strong>@Model.Candidates.Count</strong>
+    </div>
 </div>
 <div class="dashboard-grid">
-<div>
-<section class="panel">
-<div class="panel-head">
-<h2>Elections</h2>
-<a asp-action="Elections">Manage elections →</a>
-</div>
-<partial name="_ElectionList" model="Model"/>
-</section>
-<section class="panel">
-<div class="panel-head">
-<h2>Recent ballot activity</h2>
-<a asp-action="Monitoring">View monitoring →</a>
-</div>@if(Model.Ballots.Count == 0){<div class="empty">
-<strong>No ballots yet</strong></div>}@foreach(var b in Model.Ballots.OrderByDescending(b => b.CastAtUtc).Take(5)){<div class="activity">
-<span class="activity-icon">✓</span>
-<p>Ballot submitted · @b.Election.Name<small>@b.CastAtUtc.ToString("MMM d, yyyy HH:mm") UTC</small>
-</p>
-</div>}</section>
-</div>
-<div>
-<section class="panel">
-<h2>Overall participation</h2>
-<div class="turnout">
-<span class="turnout-number">@turnout%</span>
-<span class="muted">of possible ballots<br/>
-<small>All elections combined</small>
-</span>
-</div>
-<div class="progress">
-<span style="width:@(Math.Min(turnout,100))%">
-</span>
-</div>
-<p class="muted" style="margin:14px 0 0;font-size:11px">@Model.BallotCount ballots / @possibleBallots possible ballots</p>
-</section>
-<section class="panel">
-<h2>Quick actions</h2>
-<div class="quick-links">
-<a asp-action="Candidates">+ Add candidate</a>
-<a asp-action="Positions">+ Add position</a>
-<a asp-action="Users">View voters →</a>
-<a asp-action="Results">View results →</a>
-</div>
-</section>
-</div>
+    <div>
+        <section class="panel">
+            <div class="panel-head">
+                <h2>Ballots &amp; participation by election</h2>
+                <a asp-action="Elections">Manage elections →</a>
+            </div>
+            @if (Model.ElectionTurnouts.Count == 0)
+            {
+                <div class="empty"><strong>No elections yet</strong>Create a draft election to begin tracking participation.</div>
+            }
+            else
+            {
+                <ul class="result-candidates" role="list">
+                    @foreach (var item in Model.ElectionTurnouts
+                        .OrderByDescending(t => t.Status == "Open")
+                        .ThenByDescending(t => t.BallotCount)
+                        .ThenByDescending(t => t.ElectionId)
+                        .Take(8))
+                    {
+                        <li>
+                            <div class="result-candidate">
+                                <span>
+                                    <a asp-action="Elections" asp-route-id="@item.ElectionId">@item.ElectionName</a>
+                                    <small class="result-party">@item.DisplayStatus@(item.RequiredGroup != null ? $" · {item.RequiredGroup}" : "")</small>
+                                </span>
+                                <span class="result-metrics">
+                                    <strong>@item.BallotCount / @item.EligibleVoterCount @(item.BallotCount == 1 ? "ballot" : "ballots")</strong>
+                                    <span class="result-share">@item.TurnoutPercent%</span>
+                                </span>
+                            </div>
+                            <div class="result-bar" aria-hidden="true">
+                                <span style="width:@(Math.Min(item.TurnoutPercent, 100))%"></span>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+        <section class="panel">
+            <div class="panel-head">
+                <h2>Elections</h2>
+                <a asp-action="Elections">View all →</a>
+            </div>
+            <partial name="_ElectionList" model="Model"/>
+        </section>
+        <section class="panel">
+            <div class="panel-head">
+                <h2>Recent ballot activity</h2>
+                <a asp-action="Monitoring">View monitoring →</a>
+            </div>
+            @if (Model.Ballots.Count == 0)
+            {
+                <div class="empty"><strong>No ballots yet</strong></div>
+            }
+            @foreach (var b in Model.Ballots.OrderByDescending(b => b.CastAtUtc).Take(5))
+            {
+                <div class="activity">
+                    <span class="activity-icon">✓</span>
+                    <p>Ballot submitted · @b.Election.Name<small>@b.CastAtUtc.ToString("MMM d, yyyy HH:mm") UTC</small></p>
+                </div>
+            }
+        </section>
+    </div>
+    <div>
+        <section class="panel">
+            <h2>Overall participation</h2>
+            <div class="turnout">
+                <span class="turnout-number">@turnout%</span>
+                <span class="muted">of possible ballots<br/><small>All elections combined</small></span>
+            </div>
+            <div class="progress">
+                <span style="width:@(Math.Min(turnout, 100))%"></span>
+            </div>
+            <p class="muted" style="margin:14px 0 0;font-size:11px">@Model.BallotCount ballots / @possibleBallots possible ballots</p>
+        </section>
+        <section class="panel">
+            <h2>Elections &amp; ballots by status</h2>
+            <ul class="result-candidates" role="list">
+                @foreach (var summary in Model.StatusSummaries)
+                {
+                    var share = Model.BallotCount == 0 ? 0 : Math.Round(100.0 * summary.BallotCount / totalBallotsForShare, 1);
+                    <li>
+                        <div class="result-candidate">
+                            <span>
+                                @summary.Status
+                                <small class="result-party">@summary.ElectionCount @(summary.ElectionCount == 1 ? "election" : "elections")</small>
+                            </span>
+                            <span class="result-metrics">
+                                <strong>@summary.BallotCount @(summary.BallotCount == 1 ? "ballot" : "ballots")</strong>
+                                <span class="result-share">@share.ToString("0.#", CultureInfo.InvariantCulture)%</span>
+                            </span>
+                        </div>
+                        <div class="result-bar" aria-hidden="true">
+                            <span style="width:@(share.ToString("0.##", CultureInfo.InvariantCulture))%"></span>
+                        </div>
+                    </li>
+                }
+            </ul>
+        </section>
+        <section class="panel">
+            <h2>Quick actions</h2>
+            <div class="quick-links">
+                <a asp-action="Candidates">+ Add candidate</a>
+                <a asp-action="Positions">+ Add position</a>
+                <a asp-action="Users">View voters →</a>
+                <a asp-action="Results">View results →</a>
+            </div>
+        </section>
+    </div>
 </div>

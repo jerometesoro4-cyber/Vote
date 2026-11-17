@@ -11,5 +11,7 @@ namespace ACMCLVotingMVC.Controllers
         public IActionResult HowToVote() => View();
 
         public IActionResult Privacy() => View();
+
+        public IActionResult Terms() => View();
     }
 }

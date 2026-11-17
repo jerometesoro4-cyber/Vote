@@ -1,0 +1,39 @@
+@model voting.Models.VerifyEmailViewModel
+@{
+    Layout = "_AuthLayout";
+    ViewData["Title"] = "Verify email";
+}
+<h1>Verify your email</h1>
+<p class="form-intro">Confirm control of your email address before starting your session.</p>
+@if (TempData["Success"] is string success)
+{
+    <div class="form-notice success" role="status">@success</div>
+}
+@if (TempData["Error"] is string tempError)
+{
+    <div class="form-alert" role="alert">@tempError</div>
+}
+<div asp-validation-summary="ModelOnly" class="form-alert" role="alert"></div>
+<form asp-action="VerifyEmail" method="post" class="auth-form">
+    <input type="hidden" asp-for="ReturnUrl" />
+    <div class="form-field">
+        <label asp-for="Email">Email address</label>
+        <input asp-for="Email" type="email" autocomplete="email" spellcheck="false" required />
+        <span asp-validation-for="Email"></span>
+    </div>
+    <div class="form-field">
+        <label asp-for="Code">Verification code</label>
+        <p id="verify-code-hint" class="field-hint">Enter the 6-digit code sent to your email address.</p>
+        <input asp-for="Code" type="text" class="otp-input" inputmode="numeric" autocomplete="one-time-code" pattern="\d{6}" maxlength="6" aria-describedby="verify-code-hint" required />
+        <span asp-validation-for="Code"></span>
+    </div>
+    <button type="submit" class="auth-button">Verify email and sign in</button>
+</form>
+<form asp-action="ResendVerification" method="post" class="auth-resend-form">
+    <input type="hidden" name="email" value="@Model.Email" />
+    <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+    <button type="submit" class="auth-secondary-btn">Resend verification code</button>
+</form>
+<div class="auth-footer">
+    <p><a asp-action="Login" asp-route-returnUrl="@Model.ReturnUrl">Back to sign in</a></p>
+</div>
