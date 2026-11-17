@@ -1,148 +1,100 @@
 # ACMCL Voting Portal
 
-A C# **ASP.NET Core MVC** application for student elections. The UI uses server-rendered Razor views, HTML, CSS, and a little JavaScript. Data is stored in **Microsoft SQL Server** through Entity Framework Core. Node.js is not required to run the application.
+A C# **ASP.NET Core MVC** application for student elections with Razor views and a **Microsoft SQL Server** database managed by Entity Framework Core. Follow steps 1–5 for a fresh Windows setup. If you already run the portal, start with [Update an existing installation](#update-an-existing-installation).
 
-## Requirements
+## 1. Install the tools and get the project
 
-- Windows with the **.NET 10 SDK** (`dotnet --version` should start with `10.`).
-- A running **SQL Server** instance. SQL Server Express, Developer, or an existing compatible SQL Server instance can be used. SQL Server Management Studio is optional.
-- Git to clone the repository, and internet access for the first NuGet package restore.
-- A Windows account permitted to connect to SQL Server and create the application database for the first migration.
+- Install the Windows **.NET 10 SDK**. Open a new PowerShell window and check that `dotnet --list-sdks` includes a `10.0` SDK. [Download .NET 10](https://dotnet.microsoft.com/en-us/download/dotnet/10.0)
+- Install Git for Windows and have internet access for the first NuGet restore.
+- Install **SQL Server Express** or use an existing SQL Server instance. The Database Engine runs the database. **SQL Server Management Studio (SSMS)** is an optional tool for connecting, backing up, and inspecting it. [SQL Server downloads](https://www.microsoft.com/en-us/sql-server/sql-server-downloads) · [Install SSMS](https://learn.microsoft.com/en-us/ssms/install/install)
 
-Open PowerShell in the project directory, the folder containing `voting.csproj`.
-
-## 1. Get the source
+From the folder where you keep projects, clone once and restore packages.
 
 ```powershell
 git clone https://github.com/jerometesoro4-cyber/Vote.git
 cd Vote
 dotnet restore
-dotnet build
 ```
 
-## 2. Configure SQL Server and Brevo SMTP
+Run the remaining commands from the folder containing `voting.csproj` and `.env.example`.
 
-### SQL Server connection
+## 2. Set up SQL Server and create `.env`
 
-The checked-in `appsettings.json` defaults to:
+1. If installing SQL Server Express for the first time, install the Database Engine and note the instance name shown by Setup. Open **Services** (`services.msc`) and confirm the matching **SQL Server** service is running. For example, **SQL Server (SQLEXPRESS)** usually connects as `.\SQLEXPRESS`. A default instance appears as **SQL Server (MSSQLSERVER)** and connects as `localhost`.
+2. If using SSMS, connect to that server using **Windows Authentication** with the same Windows account that will run the app. For a new local database, that account needs permission to create the database and apply migrations. For a managed instance, ask the database administrator to provision the target database and give you the permissions needed to apply the schema.
+3. Create your local `.env` from the example. This command keeps an existing `.env`. Keep real SMTP keys, database passwords, and invitation codes in your private configuration. Git ignores `.env`.
 
-```text
-Server=localhost;Database=ACMCLVoting;Integrated Security=True;TrustServerCertificate=True
-```
+   ```powershell
+   if (-not (Test-Path -LiteralPath .env)) { Copy-Item .env.example .env }
+   notepad .env
+   ```
 
-This uses your Windows account against the default local SQL Server instance. No SQL username or password is included in the repository.
+4. Set `ConnectionStrings__VotingDb` in `.env` to match your instance, removing the leading `#` from the example line. The app defaults to `localhost` and `ACMCLVoting` if you leave the line commented out and have no other connection override.
 
-If you use SQL Server Express or custom connection settings, uncomment `ConnectionStrings__VotingDb` in your private `.env` file or set it with **user secrets**, rather than committing machine-specific settings:
+   | Local SQL Server instance | Line for `.env` |
+   | --- | --- |
+   | SQL Server Express named `SQLEXPRESS` | `ConnectionStrings__VotingDb=Server=.\SQLEXPRESS;Database=ACMCLVoting;Integrated Security=True;TrustServerCertificate=True` |
+   | Default local instance | `ConnectionStrings__VotingDb=Server=localhost;Database=ACMCLVoting;Integrated Security=True;TrustServerCertificate=True` |
+   | Existing Windows LocalDB instance named `MSSQLLocalDB` | `ConnectionStrings__VotingDb=Server=(localdb)\MSSQLLocalDB;Database=ACMCLVoting;Integrated Security=True;TrustServerCertificate=True` |
+
+If you already have accounts or ballots, keep the exact `Server` and `Database` values for that installation. For an instance using SQL Server Authentication, use its assigned `User ID` and `Password` in your private connection string in place of `Integrated Security=True`. The certificate setting in the examples is for a local instance. Use a trusted server certificate for a hosted database. [SQL Server Express LocalDB](https://learn.microsoft.com/en-us/sql/database-engine/configure-windows/sql-server-express-localdb)
+
+## 3. Set up Brevo SMTP
+
+Brevo sends the six-digit codes for registration, first sign-in for unverified accounts, and password recovery. Set up the sender before registering the first account.
+
+1. Sign in to Brevo and make sure **Transactional** email is enabled for your account. If Brevo shows `450 Your SMTP account is not yet activated`, request activation from Brevo Support. [Brevo SMTP troubleshooting](https://help.brevo.com/hc/en-us/articles/115000188150-Troubleshooting-Issues-with-Brevo-SMTP)
+2. In **Settings → Senders, Domains, IPs → Senders**, choose **Add a sender**. Enter a display name and an address you control, then complete any verification Brevo requests. If you send from an organization’s domain, follow Brevo’s domain authentication setup. [Create a sender](https://help.brevo.com/hc/en-us/articles/208836149-Create-a-new-sender-From-name-and-From-email) · [Authenticate a sending domain](https://help.brevo.com/hc/en-us/articles/12163873383186-Authenticate-your-domain-with-Brevo-Brevo-code-DKIM-DMARC)
+3. In **Settings → SMTP & API → SMTP**, copy the **SMTP Login** and generate a new **SMTP key**. Save the key when it is shown. [Brevo SMTP setup](https://help.brevo.com/hc/en-us/articles/7924908994450-Send-transactional-emails-using-Brevo-SMTP) · [Manage SMTP keys](https://help.brevo.com/hc/en-us/articles/7959631848850-Create-and-manage-your-SMTP-keys)
+4. In `.env`, fill in `Email__SmtpUsername` with the **SMTP Login**, `Email__SmtpPassword` with the **SMTP key**, and `Email__FromAddress` with the **verified sender address**. Keep `Email__SmtpHost=smtp-relay.brevo.com`, `Email__SmtpPort=587`, and `Email__UseSsl=true` for STARTTLS. Leave `Email__PickupDirectory=` empty for Brevo delivery. `Email__FromName` sets the name recipients see and defaults to `ACMCL Vote`.
+
+## 4. Load `.env` and apply database migrations
+
+Keep `ASPNETCORE_ENVIRONMENT=Development` in `.env` for local setup. On a fresh database, set `AdminAccount__InvitationCode` to a long, random code from a password manager. You’ll enter it on the first administrator’s registration form. If you already have an administrator, leave this entry blank and sign in with that account.
+
+In PowerShell, load `.env` and apply the schema to the database configured above.
 
 ```powershell
-dotnet user-secrets set "ConnectionStrings:VotingDb" "Server=.\SQLEXPRESS;Database=ACMCLVoting;Integrated Security=True;TrustServerCertificate=True"
-```
-
-Use the server/instance name shown in your own SQL Server installation. If SQL Server authentication is required, store the connection string in your private `.env` (which is gitignored), user secrets, or the deployment environment, never in a committed file. `TrustServerCertificate=True` is intended for local development; use a trusted certificate for hosting.
-
-### How outbound email works
-
-`Services/EmailService.cs` uses `System.Net.Mail.SmtpClient` to send 6-digit email verification codes (on registration and first sign-in for existing unverified accounts) and single-use password recovery codes (`ForgotPassword`). It connects directly over SMTP (`smtp-relay.brevo.com:587` with `EnableSsl = true`, i.e., STARTTLS), so no Brevo SDK or REST API key is required.
-
-- Missing SMTP credentials or a missing verified `Email__FromAddress` cause `EmailService` to fail fast with an actionable configuration error before attempting live SMTP delivery.
-- Automated and offline local tests can instead use a separate explicit test sink (`Email__PickupDirectory`) in `Development` only.
-- Live Brevo delivery awaits configuring your own Brevo account credentials and verified sender in `.env` (no real Brevo credentials are included in this repository).
-
-### Set up Brevo SMTP and `.env`
-
-1. In your Brevo account, create and verify a sender email address (or authenticate your sending domain) under **Senders, Domains & Dedicated IPs**. You will enter this verified email as `Email__FromAddress`.
-2. Open **SMTP & API** -> **SMTP** in Brevo, copy the **SMTP Login** field (`Email__SmtpUsername`), and generate a new **SMTP key** (`Email__SmtpPassword`). Do not use your Brevo account login password or a REST API key, and do not substitute the `@smtp-brevo.com` SMTP Login as `Email__FromAddress`.
-   - Official Brevo references:
-     - [Send transactional emails using Brevo SMTP](https://help.brevo.com/hc/en-us/articles/7924908994450-Send-transactional-emails-using-Brevo-SMTP)
-     - [Create and manage your SMTP keys](https://help.brevo.com/hc/en-us/articles/7959631848850-Create-and-manage-your-SMTP-keys)
-     - [Which SMTP port should I use (Port 587, 465, or 2525)?](https://help.brevo.com/hc/en-us/articles/10905415650322-Which-SMTP-port-should-I-use-Port-587-465-or-2525)
-3. Copy `.env.example` to `.env` and enter your private Brevo values (`.env` is gitignored):
-
-```powershell
-Copy-Item .env.example .env
-notepad .env
-```
-
-Fill in at minimum:
-- `Email__SmtpUsername` = your Brevo **SMTP Login**
-- `Email__SmtpPassword` = your generated Brevo **SMTP key**
-- `Email__FromAddress` = your verified Brevo sender address (leave `Email__SmtpHost=smtp-relay.brevo.com`, `Email__SmtpPort=587`, `Email__UseSsl=true`, and keep `Email__PickupDirectory=` empty)
-
-4. Load `.env` into your PowerShell session. ASP.NET Core does **not** load `.env` files automatically; use the included loader script (existing process environment variables take precedence by default, or pass `-Overwrite` after editing `.env` in the same terminal):
-
-```powershell
-. .\scripts\import-dotenv.ps1
-```
-
-## 3. Apply the SQL Server migration
-
-With `.env` loaded (or `$env:ASPNETCORE_ENVIRONMENT = "Development"` set), apply pending Entity Framework Core migrations:
-
-```powershell
+. .\scripts\import-dotenv.ps1 -Overwrite
 dotnet run --no-launch-profile -- --migrate
 ```
 
-This creates `ACMCLVoting` if needed and applies pending migrations, then exits. It does not start the website. Re-running the command applies only pending migrations. The schema includes accounts, elections, positions, candidates, ballots, ballot selections, and email verification codes.
+The first run creates the configured database if needed and applies the migrations. Later runs apply pending migrations and return to the prompt. For an existing database, confirm the server and database name before running the command. In SSMS, refresh the database and check **Tables → dbo.__EFMigrationsHistory** for the applied migrations. Resolve any migration error before starting the website.
 
-Run this step when upgrading an existing installation to add email ownership verification, password recovery, session version tracking, and candidate photo metadata. Existing accounts retain their password hashes and will be prompted to verify control of their email address with a 6-digit code at their next sign-in. Existing positions keep their recorded ballots and selection limits.
+ASP.NET Core reads environment variables from the process, so run the loader in each new PowerShell window before you start or migrate the app. `-Overwrite` refreshes keys listed in `.env`. If you remove a key from `.env`, open a new terminal to clear values imported by the old terminal.
 
-### Upgrading an existing installation
+## 5. Start the portal and verify email
 
-Before running this version against an existing database and installation:
-
-1. **Back up the SQL Server database** before applying the additive migration (`AccountVerificationAndCandidatePhotos`).
-2. **Configure Brevo SMTP in `.env` (or environment variables / user secrets)** before users register, verify existing accounts, or reset passwords:
-   - `Email__SmtpHost=smtp-relay.brevo.com`
-   - `Email__SmtpPort=587`
-   - `Email__UseSsl=true` (STARTTLS)
-   - `Email__SmtpUsername` (Brevo SMTP Login) and `Email__SmtpPassword` (Brevo SMTP key)
-   - `Email__FromAddress` (verified sender address in Brevo) and `Email__FromName` (defaults to `ACMCL Vote`)
-   - Keep `Email__PickupDirectory` empty in `.env` and unset in production so live verification/recovery messages are sent rather than saved locally.
-3. **Ensure write permissions** for `App_Data/candidate-photos/` (or configure `CandidatePhotos__StoragePath` to a private directory outside `wwwroot`) so administrators can upload and replace candidate photographs.
-4. **Load `.env` and apply pending migrations**: `. .\scripts\import-dotenv.ps1; dotnet run --no-launch-profile -- --migrate` (or configure the target environment's connection string).
-
-Back up an existing database before applying future migrations. Do not remove or roll back an applied migration to troubleshoot a build. Existing PostgreSQL/Supabase records are not imported into this SQL Server database.
-
-## 4. Create access for the first administrator
-
-On a fresh database with no administrators, set `AdminAccount__InvitationCode` in your `.env` (and reload with `. .\scripts\import-dotenv.ps1 -Overwrite`) or store it with user secrets:
-
-```powershell
-dotnet user-secrets set "AdminAccount:InvitationCode" "REPLACE-WITH-YOUR-OWN-LONG-RANDOM-CODE"
-```
-
-Use this code once to register the first administrator. After an administrator exists, this configured bootstrap code is no longer accepted. Additional administrators must use invitations generated from the Account page. User secrets and `.env` are local to your machine and are not included when the repository is cloned on another computer.
-
-## 5. Start the app and test verification / recovery
-
-In the same PowerShell window where you ran `. .\scripts\import-dotenv.ps1`:
+Run this in the same PowerShell window after the migration succeeds. Keep the terminal open while using the site.
 
 ```powershell
 dotnet run --no-launch-profile -- --urls http://127.0.0.1:5189
 ```
 
-Open [http://127.0.0.1:5189](http://127.0.0.1:5189). Keep the terminal running while using the website.
+1. Open the portal. On a fresh database, choose **Create an account → Administrator**, enter the invitation code from step 4, and use an inbox you can access. Enter the six-digit code from the email to verify the account and sign in. After the first administrator registers, use invitations from the **Account** page to add other administrators. [Open the local portal](http://127.0.0.1:5189)
+2. Register a test **Student** account with an inbox you control and confirm that its verification code arrives. Use **Forgot password?** for the test account to check that the recovery code arrives and that you can sign in with the new password.
+3. To change a setting, stop the app with **Ctrl+C**, edit `.env`, run `. .\scripts\import-dotenv.ps1 -Overwrite`, and start it again.
 
-To verify Brevo SMTP delivery once your credentials and verified sender are configured:
-- Register a test account (or sign in as an existing unverified account) to trigger a 6-digit verification code, or use **Forgot password?** on the sign-in page to request a 6-digit password recovery code.
-- If you edit `.env` while the app is running, stop the app with **Ctrl+C**, reload `. .\scripts\import-dotenv.ps1 -Overwrite`, and start the app again.
+For Visual Studio, open `voting.csproj` with the ASP.NET workload and run the same commands in its PowerShell terminal. If you launch from the IDE’s debugger instead, configure equivalent settings in **Manage User Secrets**, using `:` in place of `__` in key names, and use the URL shown by the HTTP profile (`http://localhost:5072`).
 
-Alternatively, `dotnet run --launch-profile http` uses the profile in `Properties/launchSettings.json`, which defaults to `http://localhost:5072`. Use the URL printed by the terminal.
+## Update an existing installation
 
-To stop localhost, press **Ctrl+C** in the terminal running the app. Stopping the app preserves the source and database. Start it again with the same run command.
+1. Stop the running app with **Ctrl+C**. In SSMS, connect to the database the app currently uses. Right-click it, choose **Tasks → Back Up**, and make a **Full** backup to a private location. Back up the candidate photo folder separately if it contains uploads. [Back up a SQL Server database](https://learn.microsoft.com/en-us/sql/relational-databases/backup-restore/create-a-full-database-backup-sql-server)
+2. In the existing clone on `main`, check `git status --short` and save any local edits before pulling.
 
-### Local `.eml` test sink (automated / offline testing only)
+   ```powershell
+   git pull --ff-only origin main
+   dotnet restore
+   ```
 
-For automated tests or offline local testing in `Development` without sending live Brevo mail, you can route messages to local `.eml` files instead:
+3. Keep your existing database connection in `.env`, and copy any new keys you need from `.env.example`. If this is your first time using `.env`, follow steps 2–3. Configure Brevo before bringing the app back up so existing accounts can receive verification codes.
+4. Run the loader and migration in step 4, then restart using step 5. The `AccountVerificationAndCandidatePhotos` migration adds schema to the same database. It preserves existing accounts, password hashes, and ballots. Users whose email addresses were unverified will need a verification code the next time they sign in.
 
-1. In `.env`, clear `Email__SmtpHost=` and set `Email__PickupDirectory=App_Data/dev-emails`.
-2. Reload `. .\scripts\import-dotenv.ps1 -Overwrite` and restart the app.
-3. Request a verification or password recovery code, then open the newest `.eml` file under `App_Data/dev-emails/` in Notepad, VS Code, or a mail viewer to inspect the 6-digit code.
-4. **Before switching back to live Brevo delivery**, restore `Email__SmtpHost=smtp-relay.brevo.com`, clear `Email__PickupDirectory=` (leaving it empty), delete any temporary `.eml` files under `App_Data/dev-emails/` so old test codes are not left on disk, run `. .\scripts\import-dotenv.ps1 -Overwrite`, and restart the app. Having both `Email__SmtpHost` and `Email__PickupDirectory` set—or setting `Email__PickupDirectory` in `Production`—is rejected with a setup error.
+When moving to a new computer, restore the SQL Server backup if you want to bring existing accounts and elections over. Copy the candidate photo folder and configure each machine’s `.env` separately. Git carries the source and migration history.
 
-### Visual Studio
+### Candidate photo storage
 
-Open `voting.csproj` in a Visual Studio installation that supports .NET 10 and has the ASP.NET/web development workload. Configure the SQL Server connection and administrator invitation as above, apply migrations, then run the HTTP profile. Visual Studio Code is also usable with the .NET SDK and its terminal.
+Candidate photos are stored under `App_Data/candidate-photos` by default. The database holds photo references. Set `CandidatePhotos__StoragePath` to a private directory outside `wwwroot` if you need a different location. Give the account running the app write access and keep the folder with your database backups.
 
 ## Accounts
 
@@ -178,7 +130,7 @@ As an administrator:
 3. Open **Candidates** and add at least as many candidates as each position's minimum. Saving a position or candidate keeps the selected election open.
 4. Return to the selected election and click **Open voting**. Students can vote within the configured period.
 5. Monitor ballot counts and tallies from the dashboard.
-6. Change the election from **Open** to **Closed** to publish results.
+6. Change the election from **Open** to **Closed** to publish results. On the closed election, open **Printable results report**, then choose **Print / Save PDF** in the report.
 
 For an election limited to a group, assign the students' group under **Voters** and select that group under **Voter access** on the election page. Choose **All students** for an unrestricted election. Voter access is editable until the first ballot or closing.
 
@@ -226,27 +178,38 @@ python tests/registration_smoke.py
 
 `auth_smoke.py` uses existing accounts to check both roles, invalid login, CSRF, logout, and redirects. `registration_smoke.py` checks the shared registration form and rejects invalid submissions without creating accounts.
 
-`tests/smoke.py` additionally requires SQLCMD and local Windows authentication. If the test app uses a database other than `ACMCLVoting`, set `VOTE_TEST_DB` to match. The test creates two uniquely named room elections, checks the voting workflow, and removes those fixtures. Run it on a local development database.
+`tests/smoke.py` additionally requires `sqlcmd` and Windows Authentication to the default `localhost` SQL Server instance. Set `VOTE_TEST_DB` to the same disposable database that the test app uses. The test creates two room elections, checks the voting workflow, and removes its fixtures.
+
+### Isolated verification and feature checks
+
+The scripts below require the Debug build, Python with `requests`, `sqlcmd`, and permissions to create and drop temporary databases on the default `localhost` SQL Server instance. They start their own app instances and use generated fixtures, including local `.eml` files for verification where needed.
+
+```powershell
+python tests/brevo_dotenv_smoke.py
+python tests/invitations_smoke.py
+python tests/feature_pack_smoke.py
+```
+
+For manual offline testing with disposable accounts, use `ASPNETCORE_ENVIRONMENT=Development`, clear `Email__SmtpHost=`, and set `Email__PickupDirectory=App_Data/dev-emails`. Reload `.env` and restart to read the generated `.eml` files in that folder. Restore the Brevo host and clear the pickup directory setting before testing live delivery.
 
 ## Troubleshooting
 
 | Problem | What to check |
 | --- | --- |
 | `dotnet` is missing or SDK version is wrong | Install the .NET 10 SDK and reopen the terminal. |
-| Cannot connect to SQL Server | Confirm the SQL Server service is running and the instance name is correct. SQL Server Express commonly uses `.\SQLEXPRESS`. |
-| Login failed for Windows user | Grant that Windows account access through SQL Server; initial setup also needs database-creation permission. |
-| Tables are missing | Apply migrations using the same Development environment and connection settings as the website. |
+| Cannot connect to SQL Server | Check that the server is running and that you can connect to the exact instance in SSMS. SQL Server Express commonly uses `.\SQLEXPRESS`. |
+| Login failed for Windows user | Use a Windows account with access to that instance and database. For initial setup, use an account with permission to create the database or ask the DBA to provision it. |
+| Tables are missing or login shows `Invalid column name 'voting_group'` | Load `.env` and apply migrations against the same database the website uses. |
 | The first administrator cannot register | With no existing administrators, set `AdminAccount__InvitationCode` in `.env` (reload with `. .\scripts\import-dotenv.ps1 -Overwrite`) or `AdminAccount:InvitationCode` in user secrets, then restart the app. |
 | An invitation is rejected | Check that it is unused, not revoked, and less than seven days old. Existing administrators can issue a replacement from Account. The bootstrap code works only before the first administrator exists. |
 | Address/port already in use | Stop your previous run with Ctrl+C, or choose another port in `--urls`. |
 | Browser cannot open localhost | Keep the `dotnet run` terminal open and use its printed URL. |
 | Build cannot overwrite `voting.exe` | Stop the running app before rebuilding. |
 | Changed settings have no effect | Restart the app; if you edited `.env`, reload with `. .\scripts\import-dotenv.ps1 -Overwrite`. |
-| Verification or recovery email fails to send | Confirm `.env` was loaded into the same PowerShell session, `Email__SmtpHost=smtp-relay.brevo.com`, `Email__SmtpPort=587`, `Email__UseSsl=true`, `Email__SmtpUsername` is your Brevo SMTP Login, `Email__SmtpPassword` is a generated Brevo SMTP key, `Email__FromAddress` is a verified Brevo sender (not `@smtp-brevo.com`), and `Email__PickupDirectory` is empty. |
-
-### Isolated invitation, Brevo config, and feature-pack checks
-
-`python tests/brevo_dotenv_smoke.py`, `python tests/invitations_smoke.py`, and `python tests/feature_pack_smoke.py` require SQLCMD and a SQL Server Windows login with permission to create and drop a temporary database. Each script creates its own randomly named `ACMCLVoting_AgyTest_...` database, applies migrations, starts a temporary app instance using isolated settings (and a temporary email pickup directory / photo folder where applicable), runs all assertions, and stops its app and deletes only its own temporary database and temporary files in `finally`. Do not point them at a real application database.
+| Brevo returns `535` | Recheck the **SMTP Login** and **SMTP key** in step 3, reload `.env`, and restart. |
+| SMTP connection times out | From the app’s computer, run `Test-NetConnection smtp-relay.brevo.com -Port 587` to check access to the relay. |
+| No verification or reset email arrives | Check the app terminal for SMTP errors, then check **Transactional → Logs** in Brevo and the recipient’s spam folder. After fixing SMTP, use **Resend code** on the verification page or request a new code from **Forgot password?**. [Brevo SMTP troubleshooting](https://help.brevo.com/hc/en-us/articles/115000188150-Troubleshooting-Issues-with-Brevo-SMTP) |
+| A student cannot see **Start voting** | Check that the election is **Open**, the current Philippine time is within the configured voting period, and the voter is assigned to the election’s group if it requires one. |
 
 ## Current limits
 
